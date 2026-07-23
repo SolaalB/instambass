@@ -255,6 +255,7 @@
     <input id="auEmail" type="email" placeholder="Adresse e-mail" autocomplete="email">
     <input id="auPass" type="password" placeholder="Mot de passe" autocomplete="current-password">
     <button id="auSubmit" class="aubtn">Se connecter</button>
+    <div class="autoggle"><a id="auForgot" href="#">Mot de passe oublié ?</a></div>
     <div class="autoggle"><span id="auToggleText">Pas encore de compte ?</span> <a id="auToggle" href="#">Créer un compte</a></div>
   </div>
 </div>
@@ -2235,6 +2236,29 @@ document.getElementById('auToggle').addEventListener('click', (e)=>{ e.preventDe
 document.getElementById('auSubmit').addEventListener('click', doAuth);
 document.getElementById('auPass').addEventListener('keydown', (e)=>{ if(e.key==='Enter') doAuth(); });
 document.getElementById('logoutBtn').addEventListener('click', logout);
+
+// --- Mot de passe oublié : envoie un e-mail de réinitialisation ---
+document.getElementById('auForgot').addEventListener('click', async (e)=>{
+  e.preventDefault();
+  const email = (document.getElementById('auEmail').value||'').trim().toLowerCase();
+  if(!email){ authError("Écris d'abord ton e-mail dans le champ, puis reclique sur « Mot de passe oublié ? »."); return; }
+  if(!SUP){ authError("La réinitialisation par e-mail nécessite Supabase (mode comptes réels)."); return; }
+  const { error } = await SUP.auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split('#')[0] });
+  authError(error ? error.message : "E-mail de réinitialisation envoyé ✓ Vérifie ta boîte (et les spams), clique le lien, puis choisis un nouveau mot de passe.");
+});
+
+// --- Retour du lien de réinitialisation : on demande le nouveau mot de passe ---
+if(SUP){
+  SUP.auth.onAuthStateChange(async (event)=>{
+    if(event === 'PASSWORD_RECOVERY'){
+      const np = prompt("Choisis ton nouveau mot de passe (au moins 6 caractères) :");
+      if(np){
+        const { error } = await SUP.auth.updateUser({ password: np });
+        alert(error ? ("Erreur : "+error.message) : "Mot de passe mis à jour ✓ Tu es connecté.");
+      }
+    }
+  });
+}
 setAuthMode('login');
 updateUserLabel();
 
