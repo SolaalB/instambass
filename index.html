@@ -185,10 +185,12 @@
     <span class="tot">Total démarchées : <b id="stDm">0</b> / <b id="stTotal">0</b></span>
   </div>
   <div class="dataio">
-    <button id="exportBtn" title="Télécharge ton suivi dans un fichier">⬇ Exporter mon suivi</button>
-    <button id="importBtn" title="Recharge un suivi depuis un fichier">⬆ Importer</button>
-    <input type="file" id="importFile" accept="application/json,.json" hidden>
-    <span class="io-hint">Pour retrouver tes coches sur un autre ordinateur</span>
+    <span id="adminIO" hidden>
+      <button id="exportBtn" title="Télécharge le suivi dans un fichier">⬇ Exporter le suivi</button>
+      <button id="importBtn" title="Recharge un suivi depuis un fichier">⬆ Importer</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+      <span class="io-hint">Réservé aux admins</span>
+    </span>
     <span id="userLabel" class="userlabel"></span>
     <button id="logoutBtn">Se déconnecter</button>
   </div>
@@ -1313,9 +1315,14 @@ function quotaDay(d){
 }
 function updateStats(){
   const items = data.reduce((n,s)=>n+s.items.length,0);
-  const totalDm = Object.values(state).filter(v=>v && v.dm).length;
+  const totalDm = Object.values(state).filter(v=>v && v.dm).length;   // total équipe (partagé)
   const today = quotaDay();
-  const sentToday = Object.values(state).filter(v=>v && v.dm && v.dmDay===today).length;
+  // Quota du jour = PERSONNEL : on ne compte que MES DM d'aujourd'hui
+  const myEmail = (currentUser && currentUser.email) ? currentUser.email.toLowerCase() : null;
+  const personal = !!(SUP && myEmail);   // en mode Supabase avec un compte connecté
+  const sentToday = Object.values(state).filter(v=>
+    v && v.dm && v.dmDay===today && (!personal || ((v.by||'').toLowerCase()===myEmail))
+  ).length;
   document.getElementById('stDm').textContent = totalDm;
   document.getElementById('stTotal').textContent = items;
   document.getElementById('stToday').textContent = Math.min(sentToday, DAILY_CAP);
@@ -1412,9 +1419,10 @@ function buildRow(it){
         cur.dm = cb.checked;
         if(cb.checked){
           cur.dmDay = quotaDay();
+          cur.by = (currentUser && currentUser.email) ? currentUser.email : null;  // qui a envoyé
           if(!cur.status || cur.status==="À contacter") cur.status = "DM envoyé";
         } else {
-          delete cur.dmDay;
+          delete cur.dmDay; delete cur.by;
         }
         state[it.b] = cur;
         save(it.b);
@@ -1665,6 +1673,7 @@ document.getElementById('qSent').addEventListener('click', ()=>{
   if(cur0){
     const cur = get(cur0.it.b);
     cur.dm = true; cur.dmDay = quotaDay();
+    cur.by = (currentUser && currentUser.email) ? currentUser.email : null;
     if(!cur.status || cur.status==='À contacter') cur.status = 'DM envoyé';
     state[cur0.it.b] = cur; save(cur0.it.b); updateStats();
   }
@@ -1736,6 +1745,7 @@ function updateUserLabel(){ const el=document.getElementById('userLabel'); if(el
 function login(u){                       // --- mode local ---
   currentUser = u;
   localStorage.setItem(SESSION_KEY, JSON.stringify(u)); // connexion enregistrée automatiquement
+  loadMyProfile(null);                   // détermine isAdmin (liste ADMIN_EMAILS) + affiche/masque les boutons
   loadState(); render(q.value); updateUserLabel();
   authOverlay.hidden = true;
   ['auFirst','auLast','auEmail','auPass'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
@@ -1750,11 +1760,17 @@ async function onLoggedIn(user){          // --- mode Supabase ---
   // Première connexion : pas encore de téléphone de contact -> ouvre le setup
   if(!myProfile || !myProfile.contact_phone){ openSettings(true); }
 }
+function applyAdminUI(){
+  const io = document.getElementById('adminIO');       // boutons Export/Import (admin only)
+  if(io) io.hidden = !isAdmin;
+  const as = document.getElementById('adminSection');   // section Administration du menu
+  if(as) as.hidden = !isAdmin;
+}
 async function loadMyProfile(userId){
   isAdmin = false; myProfile = null;
   const email = ((currentUser && currentUser.email) || '').toLowerCase();
   const emailAdmin = ADMIN_EMAILS.map(e=>e.toLowerCase()).includes(email);
-  if(!SUP){ isAdmin = emailAdmin; const a0=document.getElementById('adminSection'); if(a0) a0.hidden = !isAdmin; return; }
+  if(!SUP){ isAdmin = emailAdmin; applyAdminUI(); return; }
 
   let { data } = await SUP.from('profiles').select('*').eq('id', userId).maybeSingle();
   if(!data){
@@ -1773,13 +1789,13 @@ async function loadMyProfile(userId){
   }
   // Admin si le rôle DB = admin OU si l'e-mail est dans la liste de secours
   isAdmin = (data && data.role === 'admin') || emailAdmin;
-  const adminSec = document.getElementById('adminSection');
-  if(adminSec) adminSec.hidden = !isAdmin;
+  applyAdminUI();
 }
 async function logout(){
   if(SUP){ try{ await SUP.auth.signOut(); }catch(e){} }
   else { localStorage.removeItem(SESSION_KEY); }
-  currentUser = null; state = {}; render(q.value);
+  currentUser = null; state = {}; isAdmin = false; myProfile = null; applyAdminUI();
+  render(q.value);
   updateUserLabel(); setAuthMode('login'); authOverlay.hidden = false;
 }
 async function doAuth(){
@@ -1830,12 +1846,27 @@ if(SUP){
     if(data && data.session){ onLoggedIn(data.session.user); }
     else if(REQUIRE_LOGIN){ authOverlay.hidden = false; }
   });
-  // Realtime : les modifs d'un compte apparaissent en direct chez les autres
+  // Re-render en gardant la position de scroll (évite les sauts pendant l'usage)
+  function reRender(){ const y=window.scrollY; render(q.value); window.scrollTo(0,y); }
+  // 1) Temps réel : les modifs d'un compte apparaissent en direct chez les autres
   SUP.channel('brand_status_changes')
     .on('postgres_changes', {event:'*', schema:'public', table:'brand_status'}, (payload)=>{
       const r = payload.new;
-      if(r && r.brand){ state[r.brand] = {dm:r.dm, status:r.status, broken:r.broken, dmDay:r.dm_day, by:r.updated_by}; render(q.value); }
+      if(r && r.brand){ state[r.brand] = {dm:r.dm, status:r.status, broken:r.broken, dmDay:r.dm_day, by:r.updated_by}; reRender(); updateStats(); }
     }).subscribe();
+  // 2) Secours : sondage toutes les 8 s (garantit une mise à jour même si le temps réel est off)
+  async function pollRefresh(){
+    if(!currentUser || document.hidden) return;
+    try{
+      const { data, error } = await SUP.from('brand_status').select('*');
+      if(error || !data) return;
+      const fresh = {};
+      data.forEach(r=>{ fresh[r.brand] = {dm:r.dm, status:r.status, broken:r.broken, dmDay:r.dm_day, by:r.updated_by}; });
+      if(JSON.stringify(fresh) !== JSON.stringify(state)){ state = fresh; reRender(); }
+      updateStats();
+    }catch(e){}
+  }
+  setInterval(pollRefresh, 8000);
 } else {
   if(REQUIRE_LOGIN && !currentUser) authOverlay.hidden = false;
 }
