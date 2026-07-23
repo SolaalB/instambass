@@ -1193,7 +1193,7 @@ const ACCOUNTS_KEY = "marques_accounts_v1";
 // ===== BACKEND SUPABASE (optionnel) =====================================
 // Colle ici les 2 valeurs de ton projet (Supabase → Settings → API).
 // Tant que ce n'est pas rempli, l'app fonctionne en mode local (navigateur).
-const SUPABASE_URL      = "https://dynejntflvycgbjriqkq.supabase.co/rest/v1";        // ex : https://abcd.supabase.co
+const SUPABASE_URL      = "https://dynejntflvycgbjriqkq.supabase.co";        // ex : https://abcd.supabase.co
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5bmVqbnRmbHZ5Y2dianJpcWtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3OTQ3ODcsImV4cCI6MjEwMDM3MDc4N30.etgGv51g7GaVfw4LTuUOmYdhRTwFqNs55eA8YXRV5y8";     // clé "anon public"
 const SUP = (window.supabase && SUPABASE_URL.indexOf("VOTRE_") !== 0)
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
