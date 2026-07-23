@@ -1200,7 +1200,7 @@ const SUP = (window.supabase && SUPABASE_URL.indexOf("VOTRE_") !== 0)
   : null;   // null = mode local (localStorage)
 
 // Écran de connexion désactivé temporairement (repasse à true pour le réactiver)
-const REQUIRE_LOGIN = true;
+const REQUIRE_LOGIN = false;
 // ========================================================================
 let currentUser = null;
 try { currentUser = JSON.parse(localStorage.getItem(SESSION_KEY)) || null; } catch(e){ currentUser = null; }
