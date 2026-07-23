@@ -35,6 +35,17 @@
   /* roue crantée fixe */
   .gear{position:fixed;top:12px;right:14px;z-index:40;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:#fff;color:#555;font-size:19px;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.08);line-height:1}
   .gear:hover{color:#5a3fd6;border-color:#5a3fd6}
+  /* présence (qui est en ligne) */
+  .presence{position:fixed;top:12px;left:14px;z-index:41}
+  .presence-btn{border:1px solid var(--line);background:#fff;border-radius:99px;padding:8px 13px;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.08);display:flex;align-items:center;gap:7px;color:#333}
+  .presence-btn .dot{width:9px;height:9px;border-radius:50%;background:#2f9e57;box-shadow:0 0 0 3px rgba(47,158,87,.18)}
+  .presence-list{position:absolute;top:46px;left:0;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 34px rgba(0,0,0,.16);min-width:230px;max-height:60vh;overflow:auto;padding:8px}
+  .presence-list .pu{display:flex;align-items:flex-start;gap:9px;padding:8px 10px;border-radius:8px}
+  .presence-list .pu .dot{width:9px;height:9px;border-radius:50%;background:#2f9e57;margin-top:4px;flex-shrink:0}
+  .presence-list .pu b{font-size:13px}
+  .presence-list .pu .em{color:var(--muted);font-size:12px;word-break:break-all}
+  .presence-empty{padding:12px;color:var(--muted);font-size:13px;text-align:center}
+  .presence-head{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;padding:6px 10px 2px}
   /* menu réglages */
   .setoverlay{position:fixed;inset:0;background:rgba(20,20,25,.55);z-index:150;display:none;align-items:center;justify-content:center;padding:16px;overflow:auto}
   .setoverlay:not([hidden]){display:flex}
@@ -196,6 +207,10 @@
   </div>
 </div>
 <button id="gearBtn" class="gear" title="Réglages" aria-label="Réglages">⚙</button>
+<div id="presenceWrap" class="presence" hidden>
+  <button id="presenceBtn" class="presence-btn"><span class="dot"></span> <span id="presenceCount">0</span> en ligne</button>
+  <div id="presenceList" class="presence-list" hidden></div>
+</div>
 <main id="list"></main>
 <div id="settingsOverlay" class="setoverlay" hidden>
   <div class="setcard">
@@ -2156,6 +2171,7 @@ async function onLoggedIn(user){          // --- mode Supabase ---
   await loadState(); render(q.value); updateStats(); updateUserLabel();
   authOverlay.hidden = true;
   ['auFirst','auLast','auEmail','auPass'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  startPresence();   // affiche qui est en ligne
   // Première connexion : pas encore de téléphone de contact -> ouvre le setup
   if(!myProfile || !myProfile.contact_phone){ openSettings(true); }
 }
@@ -2191,6 +2207,7 @@ async function loadMyProfile(userId){
   applyAdminUI();
 }
 async function logout(){
+  stopPresence();
   if(SUP){ try{ await SUP.auth.signOut(); }catch(e){} }
   else { localStorage.removeItem(SESSION_KEY); }
   currentUser = null; state = {}; isAdmin = false; myProfile = null; applyAdminUI();
@@ -2259,6 +2276,57 @@ if(SUP){
     }
   });
 }
+
+// --- Présence temps réel : qui est en ligne ---
+let presenceChannel = null;
+function startPresence(){
+  if(!SUP || !currentUser) return;
+  stopPresence();
+  const wrap = document.getElementById('presenceWrap'); if(wrap) wrap.hidden = false;
+  presenceChannel = SUP.channel('online-users', { config:{ presence:{ key: currentUser.email } } });
+  presenceChannel.on('presence', { event:'sync'  }, renderPresence);
+  presenceChannel.on('presence', { event:'join'  }, renderPresence);
+  presenceChannel.on('presence', { event:'leave' }, renderPresence);
+  presenceChannel.subscribe(async (status)=>{
+    if(status === 'SUBSCRIBED'){
+      await presenceChannel.track({
+        email: currentUser.email,
+        name: ((currentUser.first||'')+' '+(currentUser.last||'')).trim() || currentUser.email,
+        online_at: new Date().toISOString()
+      });
+      renderPresence();
+    }
+  });
+}
+function stopPresence(){
+  const wrap = document.getElementById('presenceWrap'); if(wrap) wrap.hidden = true;
+  if(presenceChannel){ try{ presenceChannel.untrack(); SUP.removeChannel(presenceChannel); }catch(e){} presenceChannel = null; }
+}
+function renderPresence(){
+  if(!presenceChannel) return;
+  const st = presenceChannel.presenceState();
+  const seen = new Set(); const users = [];
+  Object.values(st).forEach(arr=>{ const u = arr && arr[0]; if(u){ const k=(u.email||'').toLowerCase(); if(!seen.has(k)){ seen.add(k); users.push(u); } } });
+  users.sort((a,b)=>(a.name||a.email||'').localeCompare(b.name||b.email||''));
+  document.getElementById('presenceCount').textContent = users.length;
+  const list = document.getElementById('presenceList');
+  list.innerHTML = '<div class="presence-head">Membres en ligne</div>';
+  if(!users.length){ list.innerHTML += '<div class="presence-empty">Personne pour l\'instant</div>'; return; }
+  users.forEach(u=>{
+    const me = (u.email||'').toLowerCase() === (currentUser.email||'').toLowerCase();
+    const row = document.createElement('div'); row.className = 'pu';
+    row.innerHTML = '<span class="dot"></span><span style="flex:1"><b>'+(u.name||u.email)+(me?' (toi)':'')+'</b><br><span class="em">'+(u.email||'')+'</span></span>';
+    list.appendChild(row);
+  });
+}
+document.getElementById('presenceBtn').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  const l = document.getElementById('presenceList'); l.hidden = !l.hidden;
+});
+document.addEventListener('click', (e)=>{
+  const w = document.getElementById('presenceWrap');
+  if(w && !w.contains(e.target)) document.getElementById('presenceList').hidden = true;
+});
 setAuthMode('login');
 updateUserLabel();
 
