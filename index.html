@@ -1236,14 +1236,17 @@ const ACCOUNTS_KEY = "marques_accounts_v1";
 // ===== BACKEND SUPABASE (optionnel) =====================================
 // Colle ici les 2 valeurs de ton projet (Supabase → Settings → API).
 // Tant que ce n'est pas rempli, l'app fonctionne en mode local (navigateur).
-const SUPABASE_URL      = "https://dynejntflvycgbjriqkq.supabase.co/rest/v1/";        // ex : https://abcd.supabase.co
+const SUPABASE_URL      = "https://dynejntflvycgbjriqkq.supabase.co";        // ex : https://abcd.supabase.co
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5bmVqbnRmbHZ5Y2dianJpcWtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3OTQ3ODcsImV4cCI6MjEwMDM3MDc4N30.etgGv51g7GaVfw4LTuUOmYdhRTwFqNs55eA8YXRV5y8";     // clé "anon public"
 const SUP = (window.supabase && SUPABASE_URL.indexOf("VOTRE_") !== 0)
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;   // null = mode local (localStorage)
 
-// Écran de connexion désactivé temporairement (repasse à true pour le réactiver)
+// Écran de connexion (true = obligatoire)
 const REQUIRE_LOGIN = true;
+
+// E-mails toujours reconnus comme admin côté site (secours si le rôle DB n'est pas mis).
+const ADMIN_EMAILS = ["solal.benhaim@essec.edu"];
 // ========================================================================
 let currentUser = null;
 try { currentUser = JSON.parse(localStorage.getItem(SESSION_KEY)) || null; } catch(e){ currentUser = null; }
@@ -1749,15 +1752,27 @@ async function onLoggedIn(user){          // --- mode Supabase ---
 }
 async function loadMyProfile(userId){
   isAdmin = false; myProfile = null;
-  if(!SUP) return;
-  const { data } = await SUP.from('profiles').select('*').eq('id', userId).single();
+  const email = ((currentUser && currentUser.email) || '').toLowerCase();
+  const emailAdmin = ADMIN_EMAILS.map(e=>e.toLowerCase()).includes(email);
+  if(!SUP){ isAdmin = emailAdmin; const a0=document.getElementById('adminSection'); if(a0) a0.hidden = !isAdmin; return; }
+
+  let { data } = await SUP.from('profiles').select('*').eq('id', userId).maybeSingle();
+  if(!data){
+    // Le profil n'existe pas encore -> on le crée
+    await SUP.from('profiles').upsert({ id:userId, email:(currentUser&&currentUser.email)||null,
+      first_name:(currentUser&&currentUser.first)||null, last_name:(currentUser&&currentUser.last)||null,
+      contact_email:(currentUser&&currentUser.email)||null }, { onConflict:'id' });
+    const res = await SUP.from('profiles').select('*').eq('id', userId).maybeSingle();
+    data = res.data;
+  }
   if(data){
     myProfile = data;
-    isAdmin   = (data.role === 'admin');
     DAILY_CAP = data.daily_quota || 60;
     sig = { first:data.first_name||'', last:data.last_name||'', email:data.contact_email||'', phone:data.contact_phone||'' };
     try { localStorage.setItem(SIG_KEY, JSON.stringify(sig)); } catch(e){}
   }
+  // Admin si le rôle DB = admin OU si l'e-mail est dans la liste de secours
+  isAdmin = (data && data.role === 'admin') || emailAdmin;
   const adminSec = document.getElementById('adminSection');
   if(adminSec) adminSec.hidden = !isAdmin;
 }
