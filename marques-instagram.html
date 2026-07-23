@@ -25,6 +25,26 @@
   .dataio button{border:1px solid var(--line);background:#fff;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;padding:6px 11px;border-radius:8px;color:#444}
   .dataio button:hover{border-color:#5a3fd6;color:#5a3fd6}
   .dataio .io-hint{font-size:11px;color:var(--muted)}
+  .dataio .userlabel{font-size:12px;font-weight:600;color:#333;margin-left:auto}
+  .signbar{max-width:900px;margin:0 auto;padding:2px 20px 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .signbar .signlabel{font-size:12px;font-weight:600;color:#444}
+  .signbar input{padding:7px 11px;font-size:13px;border:1px solid var(--line);border-radius:8px;outline:none;font-family:inherit;width:120px}
+  .signbar #sigEmail{width:190px}
+  .signbar #sigPhone{width:150px}
+  .signbar input:focus{border-color:var(--ig)}
+  /* login */
+  .authoverlay{position:fixed;inset:0;background:linear-gradient(160deg,#f4f2ff,#eef4ff);z-index:300;display:none;align-items:center;justify-content:center;padding:16px}
+  .authoverlay:not([hidden]){display:flex}
+  .authcard{background:#fff;border-radius:16px;width:100%;max-width:380px;padding:26px;box-shadow:0 20px 60px rgba(60,40,120,.18)}
+  .authcard h2{margin:0 0 2px;font-size:22px}
+  .authcard .authsub{margin:0 0 16px;font-size:13px;color:var(--muted)}
+  .authcard input{width:100%;padding:12px 13px;margin-bottom:10px;font-size:14px;border:1px solid var(--line);border-radius:10px;outline:none;font-family:inherit}
+  .authcard input:focus{border-color:#5a3fd6}
+  .authcard .aubtn{width:100%;padding:13px;border:none;border-radius:10px;background:#5a3fd6;color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:4px}
+  .authcard .aubtn:hover{opacity:.92}
+  .authcard .autoggle{text-align:center;font-size:13px;color:var(--muted);margin-top:14px}
+  .authcard .autoggle a{color:#5a3fd6;font-weight:600;text-decoration:none}
+  .autherror{background:#fdecec;color:#c0392b;border:1px solid #f3c4c4;border-radius:8px;padding:8px 11px;font-size:13px;margin-bottom:12px}
   .tools{max-width:900px;margin:0 auto;padding:2px 20px 6px;display:flex;gap:8px;flex-wrap:wrap}
   .tools .tool{border:1px solid var(--line);background:#fff;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;padding:7px 12px;border-radius:8px;color:#555}
   .tools .tool:hover{border-color:#bbb}
@@ -141,6 +161,15 @@
     <button id="importBtn" title="Recharge un suivi depuis un fichier">⬆ Importer</button>
     <input type="file" id="importFile" accept="application/json,.json" hidden>
     <span class="io-hint">Pour retrouver tes coches sur un autre ordinateur</span>
+    <span id="userLabel" class="userlabel"></span>
+    <button id="logoutBtn">Se déconnecter</button>
+  </div>
+  <div class="signbar">
+    <span class="signlabel">✍︎ Tes coordonnées (message) :</span>
+    <input id="sigFirst" type="text" placeholder="Prénom" autocomplete="off">
+    <input id="sigLast" type="text" placeholder="Nom" autocomplete="off">
+    <input id="sigEmail" type="email" placeholder="E-mail" autocomplete="off">
+    <input id="sigPhone" type="tel" placeholder="Téléphone" autocomplete="off">
   </div>
 </div>
 <main id="list"></main>
@@ -169,6 +198,22 @@
 </div>
 <footer>Recherches effectuées en juillet 2026. Vérifie rapidement chaque compte avant l'envoi : certaines marques ont plusieurs comptes régionaux.</footer>
 
+<div id="authOverlay" class="authoverlay" hidden>
+  <div class="authcard">
+    <h2 id="authTitle">Connexion</h2>
+    <p class="authsub">Accède à ta liste et retrouve ton suivi personnel.</p>
+    <div id="authError" class="autherror" hidden></div>
+    <div id="signupFields" hidden>
+      <input id="auFirst" type="text" placeholder="Prénom" autocomplete="given-name">
+      <input id="auLast" type="text" placeholder="Nom" autocomplete="family-name">
+    </div>
+    <input id="auEmail" type="email" placeholder="Adresse e-mail" autocomplete="email">
+    <input id="auPass" type="password" placeholder="Mot de passe" autocomplete="current-password">
+    <button id="auSubmit" class="aubtn">Se connecter</button>
+    <div class="autoggle"><span id="auToggleText">Pas encore de compte ?</span> <a id="auToggle" href="#">Créer un compte</a></div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // handle = compte confirmé ; search = true => compte non trouvé, lien de recherche
 const data = [
@@ -1092,11 +1137,11 @@ Je représente une liste BDE de l'ESSEC Global BBA et nous souhaitons établir u
 
 Je serais ravi de discuter plus en détail de notre projet et d'explorer les possibilités de collaboration.
 
-N'hésitez pas à me contacter pour en savoir plus par mail à solal.benhaim@essec.edu ou par téléphone au +33638247513.
+N'hésitez pas à me contacter pour en savoir plus par mail à {EMAIL} ou par téléphone au {PHONE}.
 Merci !
 
 Cordialement,
-Solal BENHAIM`;
+{SIG}`;
 
 const TPL_EN =
 `Dear {N} team,
@@ -1104,15 +1149,26 @@ I represent a BDE list from ESSEC Global BBA and we are interested in establishi
 
 This partnership would benefit both parties by increasing your brand's visibility among our extensive student audience and supporting our campaign.
 
-I would be delighted to discuss our project in more detail and explore collaboration opportunities. Please feel free to contact me via email at solal.benhaim@essec.edu or by phone at +33638247513.
+I would be delighted to discuss our project in more detail and explore collaboration opportunities. Please feel free to contact me via email at {EMAIL} or by phone at {PHONE}.
 Thank you!
 
 Sincerely,
-Solal BENHAIM`;
+{SIG}`;
 
+// Signature personnalisée (prénom + nom), sauvegardée automatiquement
+const SIG_KEY = "marques_signature";
+let sig = {first:"", last:"", email:"", phone:""};
+try { sig = Object.assign({first:"",last:"",email:"",phone:""}, JSON.parse(localStorage.getItem(SIG_KEY))||{}); } catch(e){ sig = {first:"",last:"",email:"",phone:""}; }
+function sigName(){  const n = ((sig.first||"") + " " + (sig.last||"")).trim(); return n || "Solal BENHAIM"; }
+function sigEmail(){ return (sig.email||"").trim() || "solal.benhaim@essec.edu"; }
+function sigPhone(){ return (sig.phone||"").trim() || "+33638247513"; }
 function messageFor(it){
   const name = it.cn || it.b;
-  return (it.fr ? TPL_FR : TPL_EN).split("{N}").join(name);
+  return (it.fr ? TPL_FR : TPL_EN)
+    .split("{N}").join(name)
+    .split("{SIG}").join(sigName())
+    .split("{EMAIL}").join(sigEmail())
+    .split("{PHONE}").join(sigPhone());
 }
 
 function copyText(text, cb){
@@ -1130,12 +1186,54 @@ function copyText(text, cb){
   }
 }
 
+// --- Comptes (login local) : le suivi est séparé par utilisateur ---
+const SESSION_KEY = "marques_session_v1";
+const ACCOUNTS_KEY = "marques_accounts_v1";
+
+// ===== BACKEND SUPABASE (optionnel) =====================================
+// Colle ici les 2 valeurs de ton projet (Supabase → Settings → API).
+// Tant que ce n'est pas rempli, l'app fonctionne en mode local (navigateur).
+const SUPABASE_URL      = "https://dynejntflvycgbjriqkq.supabase.co/rest/v1/";        // ex : https://abcd.supabase.co
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5bmVqbnRmbHZ5Y2dianJpcWtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3OTQ3ODcsImV4cCI6MjEwMDM3MDc4N30.etgGv51g7GaVfw4LTuUOmYdhRTwFqNs55eA8YXRV5y8";     // clé "anon public"
+const SUP = (window.supabase && SUPABASE_URL.indexOf("VOTRE_") !== 0)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;   // null = mode local (localStorage)
+
+// Écran de connexion désactivé temporairement (repasse à true pour le réactiver)
+const REQUIRE_LOGIN = false;
+// ========================================================================
+let currentUser = null;
+try { currentUser = JSON.parse(localStorage.getItem(SESSION_KEY)) || null; } catch(e){ currentUser = null; }
+function stateKey(){ return currentUser ? (STORE_KEY + "__" + currentUser.email) : STORE_KEY; }
+
 let state = {};
-try { state = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch(e){ state = {}; }
-// migration ancien statut
-Object.keys(state).forEach(k=>{ if(state[k] && state[k].status==="Pas intéressé") state[k].status = REFUS; });
+async function loadState(){
+  if(SUP){
+    state = {};
+    const { data, error } = await SUP.from('brand_status').select('*');
+    if(!error && data){
+      data.forEach(r=>{ state[r.brand] = {dm:r.dm, status:r.status, broken:r.broken, dmDay:r.dm_day, by:r.updated_by}; });
+    }
+  } else {
+    try { state = JSON.parse(localStorage.getItem(stateKey())) || {}; } catch(e){ state = {}; }
+  }
+  Object.keys(state).forEach(k=>{ if(state[k] && state[k].status==="Pas intéressé") state[k].status = REFUS; });
+}
+loadState();
 function get(k){ return state[k] || {}; }
-function save(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){} }
+function rowFor(brand){
+  const st = state[brand] || {};
+  return { brand:brand, dm:!!st.dm, status:st.status||null, broken:!!st.broken,
+           dm_day:st.dmDay||null, updated_by:(currentUser?currentUser.email:null), updated_at:new Date().toISOString() };
+}
+function save(brand){
+  if(SUP){
+    if(brand){ SUP.from('brand_status').upsert(rowFor(brand), {onConflict:'brand'}).then(()=>{}); }
+    else { const rows=Object.keys(state).map(rowFor); if(rows.length) SUP.from('brand_status').upsert(rows, {onConflict:'brand'}).then(()=>{}); }
+  } else {
+    try { localStorage.setItem(stateKey(), JSON.stringify(state)); } catch(e){}
+  }
+}
 
 let mode = "all"; // all | todo | done
 function modeOk(it){
@@ -1271,7 +1369,7 @@ function buildRow(it){
           delete cur.dmDay;
         }
         state[it.b] = cur;
-        save();
+        save(it.b);
         render(q.value);
       });
       dmLabel.appendChild(cb);
@@ -1290,7 +1388,7 @@ function buildRow(it){
         const cur = get(it.b);
         cur.status = sel.value;
         state[it.b] = cur;
-        save();
+        save(it.b);
         render(q.value);
       });
       track.appendChild(sel);
@@ -1345,6 +1443,28 @@ render("");
 
 // rafraîchit le compteur quotidien (reset auto à 2h si l'onglet reste ouvert)
 setInterval(updateStats, 60000);
+
+// --- Coordonnées du message (prénom / nom / e-mail / téléphone) ---
+const sigFirst = document.getElementById('sigFirst');
+const sigLast  = document.getElementById('sigLast');
+const sigEmailIn = document.getElementById('sigEmail');
+const sigPhoneIn = document.getElementById('sigPhone');
+if(sigFirst && sigLast){
+  sigFirst.value = sig.first || '';
+  sigLast.value  = sig.last  || '';
+  if(sigEmailIn) sigEmailIn.value = sig.email || '';
+  if(sigPhoneIn) sigPhoneIn.value = sig.phone || '';
+  function saveSig(){
+    sig = {
+      first: sigFirst.value.trim(),
+      last:  sigLast.value.trim(),
+      email: sigEmailIn ? sigEmailIn.value.trim() : '',
+      phone: sigPhoneIn ? sigPhoneIn.value.trim() : ''
+    };
+    try { localStorage.setItem(SIG_KEY, JSON.stringify(sig)); } catch(e){}
+  }
+  [sigFirst, sigLast, sigEmailIn, sigPhoneIn].forEach(el=>{ if(el) el.addEventListener('input', saveSig); });
+}
 
 // --- Toggles : masquer alcool / comptes directs seulement ---
 const alcToggle = document.getElementById('alcToggle');
@@ -1413,7 +1533,7 @@ document.getElementById('qBroken').addEventListener('click', ()=>{
     const cur = get(cur0.it.b);
     cur.status = REFUS;      // passe en "Injoignable / Refus" -> sort de la file + section rouge
     cur.broken = true;       // marqueur "lien mort"
-    state[cur0.it.b] = cur; save(); updateStats();
+    state[cur0.it.b] = cur; save(cur0.it.b); updateStats();
   }
   qIdx++; stepQueue();
 });
@@ -1423,7 +1543,7 @@ document.getElementById('qSent').addEventListener('click', ()=>{
     const cur = get(cur0.it.b);
     cur.dm = true; cur.dmDay = quotaDay();
     if(!cur.status || cur.status==='À contacter') cur.status = 'DM envoyé';
-    state[cur0.it.b] = cur; save(); updateStats();
+    state[cur0.it.b] = cur; save(cur0.it.b); updateStats();
   }
   qIdx++; stepQueue();
 });
@@ -1472,6 +1592,101 @@ importFile.addEventListener('change', (e)=>{
   };
   r.readAsText(file);
 });
+
+// --- Login local (profil + suivi par utilisateur) ---
+const authOverlay = document.getElementById('authOverlay');
+let authMode = 'login';
+function hash(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h)+s.charCodeAt(i); h=h>>>0; } return h.toString(16); }
+function getAccounts(){ try{ return JSON.parse(localStorage.getItem(ACCOUNTS_KEY))||{}; }catch(e){ return {}; } }
+function saveAccounts(a){ try{ localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(a)); }catch(e){} }
+function authError(msg){ const e=document.getElementById('authError'); if(msg){ e.textContent=msg; e.hidden=false; } else { e.hidden=true; } }
+function setAuthMode(m){
+  authMode=m;
+  document.getElementById('signupFields').hidden = (m!=='signup');
+  document.getElementById('authTitle').textContent = m==='signup' ? 'Créer un compte' : 'Connexion';
+  document.getElementById('auSubmit').textContent = m==='signup' ? 'Créer mon compte' : 'Se connecter';
+  document.getElementById('auToggleText').textContent = m==='signup' ? 'Déjà un compte ?' : 'Pas encore de compte ?';
+  document.getElementById('auToggle').textContent = m==='signup' ? 'Se connecter' : 'Créer un compte';
+  authError('');
+}
+function updateUserLabel(){ const el=document.getElementById('userLabel'); if(el) el.textContent = currentUser ? ('👤 '+currentUser.first+' '+currentUser.last) : ''; }
+function login(u){                       // --- mode local ---
+  currentUser = u;
+  localStorage.setItem(SESSION_KEY, JSON.stringify(u)); // connexion enregistrée automatiquement
+  loadState(); render(q.value); updateUserLabel();
+  authOverlay.hidden = true;
+  ['auFirst','auLast','auEmail','auPass'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+}
+async function onLoggedIn(user){          // --- mode Supabase ---
+  const md = user.user_metadata || {};
+  currentUser = { email:user.email, first:md.first_name||'', last:md.last_name||'' };
+  await loadState(); render(q.value); updateUserLabel();
+  authOverlay.hidden = true;
+  ['auFirst','auLast','auEmail','auPass'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+}
+async function logout(){
+  if(SUP){ try{ await SUP.auth.signOut(); }catch(e){} }
+  else { localStorage.removeItem(SESSION_KEY); }
+  currentUser = null; state = {}; render(q.value);
+  updateUserLabel(); setAuthMode('login'); authOverlay.hidden = false;
+}
+async function doAuth(){
+  const email = (document.getElementById('auEmail').value||'').trim().toLowerCase();
+  const pass  = document.getElementById('auPass').value||'';
+  if(!email || !pass){ authError('E-mail et mot de passe requis.'); return; }
+  const first=(document.getElementById('auFirst').value||'').trim();
+  const last =(document.getElementById('auLast').value||'').trim();
+
+  if(SUP){                                // ===== Supabase (comptes réels, partagés) =====
+    if(authMode==='signup'){
+      if(!first || !last){ authError('Prénom et nom requis.'); return; }
+      const { data, error } = await SUP.auth.signUp({ email, password:pass, options:{ data:{ first_name:first, last_name:last } } });
+      if(error){ authError(error.message); return; }
+      if(!data.session){ authError('Compte créé ✓ Vérifie ton e-mail pour confirmer, puis connecte-toi.'); setAuthMode('login'); return; }
+      await onLoggedIn(data.user);
+    } else {
+      const { data, error } = await SUP.auth.signInWithPassword({ email, password:pass });
+      if(error){ authError('E-mail ou mot de passe incorrect.'); return; }
+      await onLoggedIn(data.user);
+    }
+    return;
+  }
+
+  const accounts = getAccounts();         // ===== mode local (fallback) =====
+  if(authMode==='signup'){
+    if(!first || !last){ authError('Prénom et nom requis.'); return; }
+    if(accounts[email]){ authError('Un compte existe déjà avec cet e-mail — connecte-toi.'); return; }
+    accounts[email] = {first,last,email,pass:hash(pass)};
+    saveAccounts(accounts);
+    login({first,last,email});
+  } else {
+    const acc = accounts[email];
+    if(!acc || acc.pass !== hash(pass)){ authError('E-mail ou mot de passe incorrect.'); return; }
+    login({first:acc.first, last:acc.last, email:acc.email});
+  }
+}
+document.getElementById('auToggle').addEventListener('click', (e)=>{ e.preventDefault(); setAuthMode(authMode==='login'?'signup':'login'); });
+document.getElementById('auSubmit').addEventListener('click', doAuth);
+document.getElementById('auPass').addEventListener('keydown', (e)=>{ if(e.key==='Enter') doAuth(); });
+document.getElementById('logoutBtn').addEventListener('click', logout);
+setAuthMode('login');
+updateUserLabel();
+
+if(SUP){
+  // Reconnexion automatique (session gardée par Supabase)
+  SUP.auth.getSession().then(({data})=>{
+    if(data && data.session){ onLoggedIn(data.session.user); }
+    else if(REQUIRE_LOGIN){ authOverlay.hidden = false; }
+  });
+  // Realtime : les modifs d'un compte apparaissent en direct chez les autres
+  SUP.channel('brand_status_changes')
+    .on('postgres_changes', {event:'*', schema:'public', table:'brand_status'}, (payload)=>{
+      const r = payload.new;
+      if(r && r.brand){ state[r.brand] = {dm:r.dm, status:r.status, broken:r.broken, dmDay:r.dm_day, by:r.updated_by}; render(q.value); }
+    }).subscribe();
+} else {
+  if(REQUIRE_LOGIN && !currentUser) authOverlay.hidden = false;
+}
 </script>
 </body>
 </html>
