@@ -32,6 +32,34 @@
   .signbar #sigEmail{width:190px}
   .signbar #sigPhone{width:150px}
   .signbar input:focus{border-color:var(--ig)}
+  /* roue crantée fixe */
+  .gear{position:fixed;top:12px;right:14px;z-index:40;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:#fff;color:#555;font-size:19px;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.08);line-height:1}
+  .gear:hover{color:#5a3fd6;border-color:#5a3fd6}
+  /* menu réglages */
+  .setoverlay{position:fixed;inset:0;background:rgba(20,20,25,.55);z-index:150;display:none;align-items:center;justify-content:center;padding:16px;overflow:auto}
+  .setoverlay:not([hidden]){display:flex}
+  .setcard{background:#fff;border-radius:16px;width:100%;max-width:520px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:90vh;overflow:auto}
+  .settop{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+  .settop h2{margin:0;font-size:20px}
+  .settop #setClose{border:none;background:#f0f0f0;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px}
+  .setsub{font-size:13px;color:var(--muted);margin:2px 0 14px}
+  .setgrid{display:flex;gap:10px}
+  .setcard label{display:flex;flex-direction:column;font-size:12px;font-weight:600;color:#444;gap:4px;margin-bottom:10px;flex:1}
+  .setcard input{padding:10px 12px;font-size:14px;border:1px solid var(--line);border-radius:9px;outline:none;font-family:inherit;font-weight:400}
+  .setcard input:focus{border-color:#5a3fd6}
+  .setbtn{width:100%;padding:12px;border:none;border-radius:10px;background:#5a3fd6;color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:4px}
+  .setbtn:hover{opacity:.92}
+  .setbtn.ok{background:#2f9e57}
+  .setcard hr{border:none;border-top:1px solid var(--line);margin:18px 0 12px}
+  .setcard h3{margin:0 0 2px;font-size:16px}
+  .adminlist{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+  .adminrow{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px}
+  .adminrow .au-name{flex:1;min-width:0;font-size:13px}
+  .adminrow .au-name b{font-size:13px}
+  .adminrow .au-name span{color:var(--muted);font-size:12px;word-break:break-all}
+  .adminrow select,.adminrow input{padding:6px 8px;font-size:12px;border:1px solid var(--line);border-radius:7px;font-family:inherit}
+  .adminrow input.au-quota{width:60px}
+  .adminrow button{border:none;background:#5a3fd6;color:#fff;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer}
   /* login */
   .authoverlay{position:fixed;inset:0;background:linear-gradient(160deg,#f4f2ff,#eef4ff);z-index:300;display:none;align-items:center;justify-content:center;padding:16px}
   .authoverlay:not([hidden]){display:flex}
@@ -164,15 +192,30 @@
     <span id="userLabel" class="userlabel"></span>
     <button id="logoutBtn">Se déconnecter</button>
   </div>
-  <div class="signbar">
-    <span class="signlabel">✍︎ Tes coordonnées (message) :</span>
-    <input id="sigFirst" type="text" placeholder="Prénom" autocomplete="off">
-    <input id="sigLast" type="text" placeholder="Nom" autocomplete="off">
-    <input id="sigEmail" type="email" placeholder="E-mail" autocomplete="off">
-    <input id="sigPhone" type="tel" placeholder="Téléphone" autocomplete="off">
+</div>
+<button id="gearBtn" class="gear" title="Réglages" aria-label="Réglages">⚙</button>
+<main id="list"></main>
+<div id="settingsOverlay" class="setoverlay" hidden>
+  <div class="setcard">
+    <div class="settop"><h2 id="setTitle">Réglages</h2><button id="setClose" aria-label="Fermer">✕</button></div>
+    <p id="setWelcome" class="setsub" hidden>Bienvenue 👋 Renseigne tes coordonnées de contact : elles s'inséreront automatiquement dans les messages que tu envoies.</p>
+
+    <div class="setgrid">
+      <label>Prénom<input id="sigFirst" type="text" placeholder="Prénom" autocomplete="off"></label>
+      <label>Nom<input id="sigLast" type="text" placeholder="Nom" autocomplete="off"></label>
+    </div>
+    <label class="setfull">E-mail de contact<input id="sigEmail" type="email" placeholder="ton.mail@exemple.com" autocomplete="off"></label>
+    <label class="setfull">Téléphone de contact<input id="sigPhone" type="tel" placeholder="+33 6 ..." autocomplete="off"></label>
+    <button id="setSave" class="setbtn">Enregistrer</button>
+
+    <div id="adminSection" hidden>
+      <hr>
+      <h3>⚙ Administration</h3>
+      <p class="setsub">Gère les rôles (admin / membre) et les quotas quotidiens de chaque compte.</p>
+      <div id="adminList" class="adminlist"></div>
+    </div>
   </div>
 </div>
-<main id="list"></main>
 <div id="queueOverlay" class="qoverlay" hidden>
   <div class="qcard">
     <div class="qtop"><span id="qCount"></span><button id="qClose">✕ Fermer</button></div>
@@ -1193,7 +1236,7 @@ const ACCOUNTS_KEY = "marques_accounts_v1";
 // ===== BACKEND SUPABASE (optionnel) =====================================
 // Colle ici les 2 valeurs de ton projet (Supabase → Settings → API).
 // Tant que ce n'est pas rempli, l'app fonctionne en mode local (navigateur).
-const SUPABASE_URL      = "https://dynejntflvycgbjriqkq.supabase.co";        // ex : https://abcd.supabase.co
+const SUPABASE_URL      = "https://dynejntflvycgbjriqkq.supabase.co/rest/v1/";        // ex : https://abcd.supabase.co
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5bmVqbnRmbHZ5Y2dianJpcWtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3OTQ3ODcsImV4cCI6MjEwMDM3MDc4N30.etgGv51g7GaVfw4LTuUOmYdhRTwFqNs55eA8YXRV5y8";     // clé "anon public"
 const SUP = (window.supabase && SUPABASE_URL.indexOf("VOTRE_") !== 0)
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -1256,7 +1299,9 @@ function textMatch(it, sec, f){
 const list = document.getElementById('list');
 const q = document.getElementById('q');
 
-const DAILY_CAP = 60;
+let DAILY_CAP = 60;   // quota/jour, ajustable par un admin (Supabase)
+let myProfile = null; // profil du compte connecté (Supabase)
+let isAdmin = false;
 // "jour quota" : bascule à 2h du matin (heure locale). Avant 2h => jour précédent.
 function quotaDay(d){
   d = d ? new Date(d) : new Date();
@@ -1444,26 +1489,101 @@ render("");
 // rafraîchit le compteur quotidien (reset auto à 2h si l'onglet reste ouvert)
 setInterval(updateStats, 60000);
 
-// --- Coordonnées du message (prénom / nom / e-mail / téléphone) ---
+// --- Menu Réglages (roue crantée) : coordonnées + admin ---
 const sigFirst = document.getElementById('sigFirst');
 const sigLast  = document.getElementById('sigLast');
 const sigEmailIn = document.getElementById('sigEmail');
 const sigPhoneIn = document.getElementById('sigPhone');
-if(sigFirst && sigLast){
-  sigFirst.value = sig.first || '';
-  sigLast.value  = sig.last  || '';
+const settingsOverlay = document.getElementById('settingsOverlay');
+
+function setFieldsFromSig(){
+  if(sigFirst) sigFirst.value = sig.first || '';
+  if(sigLast)  sigLast.value  = sig.last  || '';
   if(sigEmailIn) sigEmailIn.value = sig.email || '';
   if(sigPhoneIn) sigPhoneIn.value = sig.phone || '';
-  function saveSig(){
-    sig = {
-      first: sigFirst.value.trim(),
-      last:  sigLast.value.trim(),
-      email: sigEmailIn ? sigEmailIn.value.trim() : '',
-      phone: sigPhoneIn ? sigPhoneIn.value.trim() : ''
-    };
-    try { localStorage.setItem(SIG_KEY, JSON.stringify(sig)); } catch(e){}
+}
+function saveSigLocal(){
+  sig = {
+    first: sigFirst ? sigFirst.value.trim() : '',
+    last:  sigLast  ? sigLast.value.trim()  : '',
+    email: sigEmailIn ? sigEmailIn.value.trim() : '',
+    phone: sigPhoneIn ? sigPhoneIn.value.trim() : ''
+  };
+  try { localStorage.setItem(SIG_KEY, JSON.stringify(sig)); } catch(e){}
+}
+// mise à jour live (pour le message) à chaque frappe
+[sigFirst, sigLast, sigEmailIn, sigPhoneIn].forEach(el=>{ if(el) el.addEventListener('input', saveSigLocal); });
+setFieldsFromSig();
+
+function openSettings(firstTime){
+  document.getElementById('setWelcome').hidden = !firstTime;
+  document.getElementById('setTitle').textContent = firstTime ? 'Bienvenue — configuration' : 'Réglages';
+  setFieldsFromSig();
+  const adminSec = document.getElementById('adminSection');
+  adminSec.hidden = !isAdmin;
+  if(isAdmin) loadAdminUsers();
+  settingsOverlay.hidden = false;
+}
+function closeSettings(){ settingsOverlay.hidden = true; }
+document.getElementById('gearBtn').addEventListener('click', ()=> openSettings(false));
+document.getElementById('setClose').addEventListener('click', closeSettings);
+settingsOverlay.addEventListener('click', (e)=>{ if(e.target===settingsOverlay) closeSettings(); });
+
+document.getElementById('setSave').addEventListener('click', async ()=>{
+  saveSigLocal();
+  if(currentUser){ currentUser.first = sig.first; currentUser.last = sig.last; updateUserLabel(); }
+  if(SUP && myProfile){
+    await SUP.from('profiles').update({
+      first_name: sig.first, last_name: sig.last,
+      contact_email: sig.email, contact_phone: sig.phone
+    }).eq('id', myProfile.id);
+    myProfile.first_name = sig.first; myProfile.last_name = sig.last;
+    myProfile.contact_email = sig.email; myProfile.contact_phone = sig.phone;
   }
-  [sigFirst, sigLast, sigEmailIn, sigPhoneIn].forEach(el=>{ if(el) el.addEventListener('input', saveSig); });
+  const b = document.getElementById('setSave');
+  b.classList.add('ok'); b.textContent = 'Enregistré ✓';
+  setTimeout(()=>{ b.classList.remove('ok'); b.textContent = 'Enregistrer'; closeSettings(); }, 900);
+});
+
+// --- Panneau admin : liste des comptes, rôles, quotas ---
+async function loadAdminUsers(){
+  const list = document.getElementById('adminList');
+  list.textContent = 'Chargement…';
+  const { data, error } = await SUP.from('profiles').select('*').order('email');
+  if(error){ list.textContent = 'Erreur : ' + error.message; return; }
+  list.innerHTML = '';
+  data.forEach(u=>{
+    const row = document.createElement('div'); row.className = 'adminrow';
+    const name = document.createElement('div'); name.className = 'au-name';
+    name.innerHTML = '<b>'+((u.first_name||'')+' '+(u.last_name||'')).trim()+'</b><br><span>'+(u.email||'')+'</span>';
+    row.appendChild(name);
+    const roleSel = document.createElement('select');
+    ['member','admin'].forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=(r==='admin'?'Admin':'Membre'); roleSel.appendChild(o); });
+    roleSel.value = u.role || 'member';
+    const quota = document.createElement('input'); quota.type='number'; quota.min='0'; quota.className='au-quota'; quota.value = (u.daily_quota==null?60:u.daily_quota);
+    const btn = document.createElement('button'); btn.textContent='OK';
+    btn.addEventListener('click', async ()=>{
+      btn.textContent='…';
+      const { error } = await SUP.from('profiles').update({ role: roleSel.value, daily_quota: parseInt(quota.value)||60 }).eq('id', u.id);
+      btn.textContent = error ? 'Err' : '✓';
+      if(!error && myProfile && u.id===myProfile.id){ DAILY_CAP = parseInt(quota.value)||60; updateStats(); }
+      setTimeout(()=>btn.textContent='OK', 1200);
+    });
+    const ctrl = document.createElement('div'); ctrl.style.display='flex'; ctrl.style.gap='6px'; ctrl.style.alignItems='center';
+    ctrl.append(roleSel, quota, btn);
+    row.appendChild(ctrl);
+    list.appendChild(row);
+  });
+}
+
+// Première connexion en mode local (sans Supabase) : ouvre le setup une fois
+if(!SUP){
+  try{
+    if(!localStorage.getItem('marques_setup_done')){
+      openSettings(true);
+      localStorage.setItem('marques_setup_done','1');
+    }
+  }catch(e){}
 }
 
 // --- Toggles : masquer alcool / comptes directs seulement ---
@@ -1619,10 +1739,27 @@ function login(u){                       // --- mode local ---
 }
 async function onLoggedIn(user){          // --- mode Supabase ---
   const md = user.user_metadata || {};
-  currentUser = { email:user.email, first:md.first_name||'', last:md.last_name||'' };
-  await loadState(); render(q.value); updateUserLabel();
+  currentUser = { id:user.id, email:user.email, first:md.first_name||'', last:md.last_name||'' };
+  await loadMyProfile(user.id);           // récupère rôle, quota, coordonnées
+  await loadState(); render(q.value); updateStats(); updateUserLabel();
   authOverlay.hidden = true;
   ['auFirst','auLast','auEmail','auPass'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  // Première connexion : pas encore de téléphone de contact -> ouvre le setup
+  if(!myProfile || !myProfile.contact_phone){ openSettings(true); }
+}
+async function loadMyProfile(userId){
+  isAdmin = false; myProfile = null;
+  if(!SUP) return;
+  const { data } = await SUP.from('profiles').select('*').eq('id', userId).single();
+  if(data){
+    myProfile = data;
+    isAdmin   = (data.role === 'admin');
+    DAILY_CAP = data.daily_quota || 60;
+    sig = { first:data.first_name||'', last:data.last_name||'', email:data.contact_email||'', phone:data.contact_phone||'' };
+    try { localStorage.setItem(SIG_KEY, JSON.stringify(sig)); } catch(e){}
+  }
+  const adminSec = document.getElementById('adminSection');
+  if(adminSec) adminSec.hidden = !isAdmin;
 }
 async function logout(){
   if(SUP){ try{ await SUP.auth.signOut(); }catch(e){} }
