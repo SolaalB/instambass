@@ -100,7 +100,33 @@
   /* overlay mode file d'envoi */
   .qoverlay{position:fixed;inset:0;background:rgba(20,20,25,.55);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
   .qoverlay:not([hidden]){display:flex}
-  .qcard{background:#fff;border-radius:16px;width:100%;max-width:560px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .qcard{background:#fff;border-radius:16px;width:100%;max-width:560px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative}
+  /* ===== Animations (feedback / dopamine) ===== */
+  @keyframes overlayIn{from{opacity:0}to{opacity:1}}
+  @keyframes cardIn{0%{opacity:0;transform:translateY(24px) scale(.94)}60%{transform:translateY(-4px) scale(1.01)}100%{opacity:1;transform:translateY(0) scale(1)}}
+  @keyframes stepIn{0%{opacity:0;transform:translateX(18px)}100%{opacity:1;transform:translateX(0)}}
+  @keyframes floatUp{0%{opacity:0;transform:translateX(-50%) translateY(8px) scale(.7)}20%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-46px) scale(1.25)}}
+  @keyframes popok{0%{transform:scale(1)}45%{transform:scale(1.14)}100%{transform:scale(1)}}
+  @keyframes barsheen{0%{background-position:-120px 0}100%{background-position:220px 0}}
+  .qoverlay:not([hidden]){animation:overlayIn .18s ease-out}
+  .qoverlay:not([hidden]) .qcard{animation:cardIn .34s cubic-bezier(.2,.8,.2,1.1)}
+  #qBody.stepin{animation:stepIn .26s ease-out}
+  .plusone{position:absolute;left:50%;top:38%;transform:translateX(-50%);color:#2f9e57;font-weight:800;font-size:22px;pointer-events:none;animation:floatUp .9s ease-out forwards;text-shadow:0 2px 8px rgba(47,158,87,.35);z-index:5}
+  /* boutons : rebond au survol + enfoncement au clic (partout) */
+  a.btn,button.btn,.qbtn,.tool,.aubtn,.setbtn,.gear,.presence-btn,.dataio button,.adminrow button{
+    transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease, background .15s ease;
+  }
+  a.btn:hover,button.btn:hover,.qbtn:hover,.tool:hover,.aubtn:hover,.setbtn:hover{transform:translateY(-1.5px)}
+  a.btn:active,button.btn:active,.qbtn:active,.tool:active,.aubtn:active,.setbtn:active,.gear:active,.presence-btn:active,.dataio button:active{transform:scale(.94)}
+  .gear:hover{transform:rotate(35deg) scale(1.06)}
+  .qbtn.qsent:hover{box-shadow:0 6px 18px rgba(47,158,87,.4)}
+  .qbtn.qcopy:hover{box-shadow:0 6px 18px rgba(90,63,214,.35)}
+  .qbtn.qopen:hover{box-shadow:0 6px 18px rgba(0,149,246,.35)}
+  .qbtn.popok{animation:popok .3s ease}
+  a.dmbtn.ok{animation:popok .3s ease}
+  button.copy.ok{animation:popok .3s ease}
+  #qQuota .qbar>span{background-image:linear-gradient(90deg,#5a3fd6,#7d5cff,#5a3fd6);background-size:200px 100%}
+  #qQuota.full .qbar>span{background-image:none}
   .qtop{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
   .qtop #qCount{font-size:13px;color:var(--muted);font-weight:600}
   .qtop #qClose{border:none;background:#f0f0f0;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;font-family:inherit}
@@ -2074,6 +2100,7 @@ function stepQueue(){
     alert('Terminé 🎉 Toute la file a été parcourue.');
     return;
   }
+  const body=document.getElementById('qBody'); if(body){ body.classList.remove('stepin'); void body.offsetWidth; body.classList.add('stepin'); }
   const {it, sec} = queue[qIdx];
   document.getElementById('qCount').textContent = 'Marque '+(qIdx+1)+' / '+queue.length;
   document.getElementById('qCat').textContent = sec.cat;
@@ -2119,6 +2146,12 @@ document.getElementById('qBroken').addEventListener('click', ()=>{
   }
   qIdx++; stepQueue();
 });
+function celebrate(){
+  const card = document.querySelector('.qcard'); if(!card) return;
+  const el = document.createElement('div'); el.className='plusone'; el.textContent='+1 ✓';
+  card.appendChild(el); setTimeout(()=>el.remove(), 900);
+  const b = document.getElementById('qSent'); if(b){ b.classList.remove('popok'); void b.offsetWidth; b.classList.add('popok'); }
+}
 document.getElementById('qSent').addEventListener('click', ()=>{
   const cur0 = queue[qIdx];
   if(cur0){
@@ -2127,6 +2160,7 @@ document.getElementById('qSent').addEventListener('click', ()=>{
     cur.by = (currentUser && currentUser.email) ? currentUser.email : null;
     if(!cur.status || cur.status==='À contacter') cur.status = 'DM envoyé';
     state[cur0.it.b] = cur; save(cur0.it.b); updateStats();
+    celebrate();
   }
   qIdx++; stepQueue();
 });
