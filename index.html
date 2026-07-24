@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marques à contacter — Instagram / TikTok</title>
+<title>Marques à contacter — Instagram</title>
 <style>
   :root{
     --ig:#E1306C; --bg:#fafafa; --card:#fff; --line:#ececec; --txt:#1a1a1a; --muted:#8a8a8a;
@@ -173,7 +173,7 @@
 </head>
 <body>
 <header>
-  <h1>Marques à contacter — Instagram / TikTok</h1>
+  <h1>Marques à contacter — Instagram</h1>
   <p class="sub">Clique sur « Instagram » pour ouvrir la page, puis <b>Copier le message</b> (<span class="lang fr">FR</span> marque française / <span class="lang en">EN</span> sinon, nom déjà inséré). Coche <b>DM envoyé</b>, choisis un <b>statut</b>, et filtre entre <b>À faire</b> / <b>Démarchées</b>. Les marques en <b>Injoignable&nbsp;/&nbsp;Refus</b> passent en rouge tout en bas. Tout est sauvegardé dans ton navigateur.</p>
 </header>
 <div class="topbar">
@@ -198,8 +198,11 @@
   <div class="dataio">
     <span id="adminIO" hidden>
       <button id="exportBtn" title="Télécharge le suivi dans un fichier">⬇ Exporter le suivi</button>
-      <button id="importBtn" title="Recharge un suivi depuis un fichier">⬆ Importer</button>
+      <button id="importBtn" title="Recharge un suivi depuis un fichier">⬆ Importer suivi</button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
+      <button id="csvBtn" title="Importer un CSV de marques (en masse)">📥 Importer marques (CSV)</button>
+      <input type="file" id="csvFile" accept=".csv,text/csv" hidden>
+      <button id="namesBtn" title="Exporte la liste des marques déjà présentes (à donner à l'IA pour éviter les doublons)">📋 Liste marques (anti-doublon)</button>
       <span class="io-hint">Réservé aux admins</span>
     </span>
     <span id="userLabel" class="userlabel"></span>
@@ -1778,9 +1781,6 @@ function buildRow(it){
         const igs = document.createElement('a');
         igs.className='btn search-btn'; igs.href=searchUrl(it.cn||it.b,"ig"); igs.target="_blank";
         igs.textContent="Instagram ⌕"; actions.appendChild(igs);
-        const tts = document.createElement('a');
-        tts.className='btn search-btn'; tts.href=searchUrl(it.cn||it.b,"tt"); tts.target="_blank";
-        tts.textContent="TikTok ⌕"; actions.appendChild(tts);
       }else{
         // 1 clic = copie le message ET ouvre directement le DM (ig.me)
         const dm=document.createElement('a');
@@ -1795,11 +1795,6 @@ function buildRow(it){
         const ig=document.createElement('a');
         ig.className='btn ig'; ig.href=igUrl(it.h); ig.target="_blank";
         ig.textContent="Profil"; actions.appendChild(ig);
-        const tt=document.createElement('a');
-        tt.className='btn tt'; tt.target="_blank";
-        if(it.tt){ tt.href=ttDirect(it.tt); tt.textContent="TikTok"; }
-        else { tt.href=searchUrl(it.cn||it.b,"tt"); tt.textContent="TikTok ⌕"; }
-        actions.appendChild(tt);
       }
       // bouton copier le message (marques sans handle direct → pas de DM possible)
       if(it.search){
@@ -2168,7 +2163,7 @@ async function onLoggedIn(user){          // --- mode Supabase ---
   const md = user.user_metadata || {};
   currentUser = { id:user.id, email:user.email, first:md.first_name||'', last:md.last_name||'' };
   await loadMyProfile(user.id);           // récupère rôle, quota, coordonnées
-  await loadState(); render(q.value); updateStats(); updateUserLabel();
+  await loadState(); await loadBrands(); render(q.value); updateStats(); updateUserLabel();
   authOverlay.hidden = true;
   ['auFirst','auLast','auEmail','auPass'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   startPresence();   // affiche qui est en ligne
@@ -2360,6 +2355,87 @@ if(SUP){
 } else {
   if(REQUIRE_LOGIN && !currentUser) authOverlay.hidden = false;
 }
+
+// --- Marques dynamiques (table Supabase) + import CSV (admin) ---
+function normB(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/&/g,' and ').replace(/[^a-z0-9]+/g,' ').trim(); }
+let communityBrands = [];
+async function loadBrands(){
+  if(!SUP) return;
+  try{
+    const { data:rows, error } = await SUP.from('brands').select('brand,handle,tt,fr,category');
+    if(error || !rows) return;
+    communityBrands = rows;
+    mergeCommunity();
+  }catch(e){}
+}
+function mergeCommunity(){
+  for(let i=data.length-1;i>=0;i--){ if(data[i]._community) data.splice(i,1); }
+  const have = new Set();
+  data.forEach(s=>s.items.forEach(it=> have.add(normB(it.b)) ));
+  const groups = {};
+  communityBrands.forEach(r=>{
+    if(!r.brand || !r.handle) return;
+    const n = normB(r.brand);
+    if(have.has(n)) return;
+    have.add(n);
+    const cat = ((r.category||'Ajouts communauté').trim() || 'Ajouts communauté') + ' ⬆';
+    (groups[cat] = groups[cat] || []).push({ b:r.brand, h:r.handle, tt:(r.tt||undefined), fr:!!r.fr });
+  });
+  Object.keys(groups).forEach(cat=> data.push({ cat:cat, items:groups[cat], _community:true }));
+}
+function parseCSV(text){
+  const lines = text.replace(/\r\n?/g,'\n').split('\n').filter(l=>l.trim().length);
+  if(!lines.length) return [];
+  const pl = (line)=>{ const out=[]; let cur=''; let q=false;
+    for(let i=0;i<line.length;i++){ const c=line[i];
+      if(q){ if(c==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+      else { if(c==='"') q=true; else if(c===','){ out.push(cur); cur=''; } else cur+=c; } }
+    out.push(cur); return out; };
+  const headers = pl(lines[0]).map(h=>h.trim().toLowerCase());
+  return lines.slice(1).map(l=>{ const c=pl(l); const o={}; headers.forEach((h,i)=>o[h]=(c[i]||'').trim()); return o; });
+}
+async function importBrandsCSV(file){
+  if(!SUP){ alert('Import disponible seulement en mode Supabase (comptes réels).'); return; }
+  const text = await file.text();
+  const rows = parseCSV(text);
+  const clean = rows.map(r=>({
+    brand:(r.brand||r.marque||r.nom||'').trim(),
+    handle:(r.handle||r.instagram||r.insta||'').trim().replace(/^@/,''),
+    tt:((r.tiktok||r.tt||'').trim().replace(/^@/,''))||null,
+    fr:/^(1|true|vrai|oui|yes)$/i.test((r.fr||r.francaise||'').trim()),
+    category:((r.category||r.categorie||r['catégorie']||'Import').trim())||'Import'
+  })).filter(x=>x.brand && x.handle);
+  const seen=new Set(); const uniq=[];
+  clean.forEach(x=>{ const n=normB(x.brand); if(n && !seen.has(n)){ seen.add(n); x.brand_norm=n; uniq.push(x); } });
+  if(!uniq.length){ alert("Aucune ligne valide. Vérifie l'en-tête du CSV : brand,handle,tiktok,fr,category"); return; }
+  let sent=0;
+  for(let i=0;i<uniq.length;i+=500){
+    const chunk=uniq.slice(i,i+500).map(x=>({brand:x.brand,brand_norm:x.brand_norm,handle:x.handle,tt:x.tt,fr:x.fr,category:x.category,added_by:currentUser?currentUser.email:null}));
+    const { error } = await SUP.from('brands').upsert(chunk, { onConflict:'brand_norm', ignoreDuplicates:true });
+    if(error){ alert('Erreur import : '+error.message+' (es-tu bien admin ? le SQL brands est-il lancé ?)'); return; }
+    sent+=chunk.length;
+  }
+  await loadBrands(); render(q.value); updateStats();
+  alert('Import terminé ✓ '+uniq.length+' marques lues (doublons ignorés automatiquement).');
+}
+(function(){
+  const b=document.getElementById('csvBtn'), f=document.getElementById('csvFile');
+  if(b&&f){
+    b.addEventListener('click', ()=>f.click());
+    f.addEventListener('change', (e)=>{ const file=e.target.files[0]; if(file) importBrandsCSV(file); f.value=''; });
+  }
+  // Export de la liste des marques existantes (anti-doublon pour l'IA)
+  const nb=document.getElementById('namesBtn');
+  if(nb) nb.addEventListener('click', ()=>{
+    let total=0, out='';
+    data.forEach(s=>{ if(!s.items.length) return; out += '### '+s.cat+'\n' + s.items.map(it=>{total++;return it.b;}).join('\n') + '\n\n'; });
+    out = 'MARQUES DÉJÀ PRÉSENTES ('+total+') — NE PAS LES REPROPOSER\n\n' + out;
+    const blob=new Blob([out],{type:'text/plain'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='marques-existantes-'+new Date().toISOString().slice(0,10)+'.txt';
+    a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  });
+})();
 </script>
 </body>
 </html>
