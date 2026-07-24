@@ -90,6 +90,13 @@
   .tools .tool.on{background:#eef1ff;border-color:#5a3fd6;color:#3b4cca}
   .tools .tool.primary{background:#5a3fd6;color:#fff;border-color:#5a3fd6}
   .tools .tool.primary:hover{opacity:.9}
+  .tools .sortsel{border:1px solid var(--line);background:#fff;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;padding:7px 10px;border-radius:8px;color:#555}
+  .tools .sortsel:hover{border-color:#bbb}
+  /* quota dans le mode file d'envoi */
+  #qQuota{margin-top:12px;font-size:13px;color:#333;font-weight:600}
+  #qQuota .qbar{height:7px;background:#eee;border-radius:99px;overflow:hidden;margin-top:5px}
+  #qQuota .qbar>span{display:block;height:100%;background:#5a3fd6;width:0;transition:width .2s}
+  #qQuota.full .qbar>span{background:#2f9e57}
   /* overlay mode file d'envoi */
   .qoverlay{position:fixed;inset:0;background:rgba(20,20,25,.55);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
   .qoverlay:not([hidden]){display:flex}
@@ -189,6 +196,13 @@
     <button id="queueBtn" class="tool primary">▶ Mode file d'envoi</button>
     <button id="alcToggle" class="tool on">🚫 Alcool masqué</button>
     <button id="directToggle" class="tool">✔︎ Comptes directs seulement</button>
+    <select id="sortSel" class="sortsel" title="Trier les marques">
+      <option value="default">Tri : par catégorie</option>
+      <option value="az">Nom A → Z</option>
+      <option value="za">Nom Z → A</option>
+      <option value="recent">Plus récentes</option>
+      <option value="ancien">Plus anciennes</option>
+    </select>
   </div>
   <div class="stats">
     <span>DM aujourd'hui : <b id="stToday">0</b> / 60 <b id="stExtra" class="extra"></b></span>
@@ -255,6 +269,7 @@
       <div class="qactions">
         <button id="qBroken" class="qbtn qbroken">⚠︎ Lien mort · marquer incontactable</button>
       </div>
+      <div id="qQuota"></div>
       <div class="qhint">Raccourcis : <b>C</b> copier · <b>O</b> ouvrir le DM · <b>Entrée</b> envoyé + suivant · <b>S</b> passer · <b>B</b> lien mort · <b>Échap</b> fermer</div>
     </div>
   </div>
@@ -1861,33 +1876,44 @@ function buildRow(it){
       return row;
 }
 
+let sortMode = 'default';
+function getSorter(m){
+  if(m==='az')     return (a,b)=> a.b.localeCompare(b.b,'fr',{sensitivity:'base'});
+  if(m==='za')     return (a,b)=> b.b.localeCompare(a.b,'fr',{sensitivity:'base'});
+  if(m==='recent') return (a,b)=> (b._ord||0)-(a._ord||0);
+  if(m==='ancien') return (a,b)=> (a._ord||0)-(b._ord||0);
+  return null;
+}
 function render(filter){
   filter = (filter||"").toLowerCase().trim();
   list.innerHTML = "";
   let total = 0;
-  const refusList = [];
-  function textOk(it, sec){
+  // index d'ordre global (pour "plus récent / plus ancien")
+  let ord=0; data.forEach(sec=>sec.items.forEach(it=>{ it._ord=ord++; it._cat=sec.cat; }));
+  function textOk(it){
     return it.b.toLowerCase().includes(filter) ||
            (it.h||"").toLowerCase().includes(filter) ||
-           sec.cat.toLowerCase().includes(filter);
+           (it._cat||"").toLowerCase().includes(filter);
   }
-  data.forEach(sec=>{
-    const matches = sec.items.filter(it => textOk(it,sec) && modeOk(it) && alcOk(it,sec) && directOk(it));
-    matches.forEach(it=>{ if(isRefus(it)) refusList.push(it); });
-    const normal = matches.filter(it => !isRefus(it));
-    if(normal.length){
-      const h2 = document.createElement('h2');
-      h2.textContent = sec.cat;
-      list.appendChild(h2);
-      normal.forEach(it=>{ total++; list.appendChild(buildRow(it)); });
-    }
-  });
-  if(refusList.length){
-    const h2 = document.createElement('h2');
-    h2.className = 'refus';
-    h2.textContent = 'Refus / Injoignables';
-    list.appendChild(h2);
-    refusList.forEach(it=>{ total++; list.appendChild(buildRow(it)); });
+  const sorter = getSorter(sortMode);
+  const addSection = (title, cls, items)=>{
+    if(!items.length) return;
+    const h2=document.createElement('h2'); if(cls) h2.className=cls; h2.textContent=title; list.appendChild(h2);
+    items.forEach(it=>{ total++; list.appendChild(buildRow(it)); });
+  };
+  if(sorter){
+    const all=[];
+    data.forEach(sec=>sec.items.forEach(it=>{ if(textOk(it)&&modeOk(it)&&alcOk(it,sec)&&directOk(it)) all.push(it); }));
+    addSection('Toutes les marques ('+all.filter(it=>!isRefus(it)).length+')', '', all.filter(it=>!isRefus(it)).sort(sorter));
+    addSection('Refus / Injoignables', 'refus', all.filter(it=>isRefus(it)).sort(sorter));
+  } else {
+    const refusList = [];
+    data.forEach(sec=>{
+      const matches = sec.items.filter(it => textOk(it) && modeOk(it) && alcOk(it,sec) && directOk(it));
+      matches.forEach(it=>{ if(isRefus(it)) refusList.push(it); });
+      addSection(sec.cat, '', matches.filter(it => !isRefus(it)));
+    });
+    addSection('Refus / Injoignables', 'refus', refusList);
   }
   if(!total){
     const p=document.createElement('p');p.className='count';p.textContent="Aucune marque trouvée.";list.appendChild(p);
@@ -1901,6 +1927,10 @@ document.getElementById('filters').addEventListener('click', e=>{
   const btn = e.target.closest('button'); if(!btn) return;
   mode = btn.dataset.mode;
   document.querySelectorAll('#filters button').forEach(b=>b.classList.toggle('active', b===btn));
+  render(q.value);
+});
+document.getElementById('sortSel').addEventListener('change', e=>{
+  sortMode = e.target.value;
   render(q.value);
 });
 
@@ -2054,6 +2084,18 @@ function stepQueue(){
   open.href = it.h ? dmUrl(it.h) : searchUrl(it.cn||it.b,'ig');
   copyText(messageFor(it), ()=>{});   // auto-copie
   const c = document.getElementById('qCopy'); c.classList.remove('ok'); c.textContent = 'Copier le message';
+  updateQueueQuota();
+}
+function updateQueueQuota(){
+  const el = document.getElementById('qQuota'); if(!el) return;
+  const today = quotaDay();
+  const myEmail = (currentUser && currentUser.email) ? currentUser.email.toLowerCase() : null;
+  const personal = !!(SUP && myEmail);
+  const n = Object.values(state).filter(v=> v && v.dm && v.dmDay===today && (!personal || ((v.by||'').toLowerCase()===myEmail))).length;
+  const pct = Math.min(n/DAILY_CAP*100, 100);
+  el.classList.toggle('full', n>=DAILY_CAP);
+  el.innerHTML = 'Ton quota du jour : '+Math.min(n,DAILY_CAP)+' / '+DAILY_CAP+(n>DAILY_CAP?' (+ '+(n-DAILY_CAP)+')':'')+
+                 '<div class="qbar"><span style="width:'+pct+'%"></span></div>';
 }
 document.getElementById('queueBtn').addEventListener('click', openQueue);
 document.getElementById('qClose').addEventListener('click', closeQueue);
