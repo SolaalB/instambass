@@ -78,6 +78,8 @@
   .adminrow select,.adminrow input{padding:6px 8px;font-size:12px;border:1px solid var(--line);border-radius:7px;font-family:inherit}
   .adminrow input.au-quota{width:60px}
   .adminrow button{border:none;background:#5a3fd6;color:#fff;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer}
+  .adminrow button.au-reset{background:#fdecec;color:#c0392b;border:1px solid #f3c4c4}
+  .adminrow button.au-reset:hover{background:#fbdcdc}
   /* login */
   .authoverlay{position:fixed;inset:0;background:linear-gradient(160deg,#f4f2ff,#eef4ff);z-index:300;display:none;align-items:center;justify-content:center;padding:16px}
   .authoverlay:not([hidden]){display:flex}
@@ -259,7 +261,6 @@
         <button id="csvBtn" title="Importer un CSV de marques (en masse)">📥 Importer marques (CSV)</button>
         <input type="file" id="csvFile" accept=".csv,text/csv" hidden>
         <button id="namesBtn" title="Exporte la liste des marques déjà présentes">📋 Liste marques</button>
-        <button id="resetResvBtn" title="Libère toutes les réservations du jour (test)">🧹 Reset réservations</button>
       </span>
     </span>
     <span id="userLabel" class="userlabel"></span>
@@ -2102,8 +2103,15 @@ async function loadAdminUsers(){
       if(!error && myProfile && u.id===myProfile.id){ DAILY_CAP = parseInt(quota.value)||60; updateStats(); }
       setTimeout(()=>btn.textContent='OK', 1200);
     });
+    const rstBtn = document.createElement('button'); rstBtn.textContent='🧹'; rstBtn.title='Reset réservations du jour de ce compte'; rstBtn.className='au-reset';
+    rstBtn.addEventListener('click', async ()=>{
+      rstBtn.textContent='…';
+      const ok = await resetUserReservations(u.email);
+      rstBtn.textContent = ok ? '✓' : '🧹';
+      setTimeout(()=>rstBtn.textContent='🧹', 1200);
+    });
     const ctrl = document.createElement('div'); ctrl.style.display='flex'; ctrl.style.gap='6px'; ctrl.style.alignItems='center';
-    ctrl.append(roleSel, quota, btn);
+    ctrl.append(roleSel, quota, btn, rstBtn);
     row.appendChild(ctrl);
     list.appendChild(row);
   });
@@ -2640,25 +2648,24 @@ async function importBrandsCSV(file){
     a.download='marques-existantes-'+new Date().toISOString().slice(0,10)+'.txt';
     a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   });
-  // onglet admin déroulant
+  // onglet admin déroulant (cache les 4 boutons, se déroule au clic)
   const at=document.getElementById('adminToggle'), ap=document.getElementById('adminPanel');
   if(at&&ap){ at.addEventListener('click', ()=>{ ap.hidden=!ap.hidden; at.classList.toggle('open', !ap.hidden); }); }
-  // reset des réservations du jour (debug admin)
-  const rr=document.getElementById('resetResvBtn');
-  if(rr) rr.addEventListener('click', resetReservations);
 })();
 
-async function resetReservations(){
-  if(!SUP){ alert('Disponible seulement en mode Supabase.'); return; }
-  if(!confirm('Libérer TOUTES les réservations du jour (pour test) ? Ça remet à zéro pour tout le monde.')) return;
+// Reset des réservations d'UN utilisateur (debug admin, dans la liste des comptes)
+async function resetUserReservations(email){
+  if(!SUP) return;
+  if(!confirm('Libérer les réservations du jour de '+email+' ?')) return false;
   const today = quotaDay();
-  const { error } = await SUP.from('brand_status').update({reserved_by:null, reserved_day:null}).eq('reserved_day', today);
-  if(error){ alert('Erreur : '+error.message); return; }
-  // enlève les repères locaux pour re-tester proprement
-  try{ Object.keys(localStorage).forEach(k=>{ if(k.indexOf('resvdone_'+today)===0 || k.indexOf('quota_'+today)===0) localStorage.removeItem(k); }); }catch(e){}
-  freedToday=false; myQuotaToday=0;
+  try{ await SUP.rpc('free_my_reservations', { p_day: today, p_email: email }); }catch(e){ alert('Erreur : '+e.message); return false; }
+  // si c'est mon propre compte, je réinitialise aussi mes repères locaux
+  if((email||'').toLowerCase() === myEmailLC()){
+    try{ Object.keys(localStorage).forEach(k=>{ if(k.indexOf('resvdone_'+today)===0 || k.indexOf('quota_'+today)===0) localStorage.removeItem(k); }); }catch(e){}
+    freedToday=false; myQuotaToday=0;
+  }
   await loadState(); render(q.value); updateStats();
-  alert('Réservations du jour réinitialisées ✓');
+  return true;
 }
 </script>
 </body>
