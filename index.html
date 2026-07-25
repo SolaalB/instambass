@@ -26,6 +26,13 @@
   .dataio button:hover{border-color:#5a3fd6;color:#5a3fd6}
   .dataio .io-hint{font-size:11px;color:var(--muted)}
   .dataio .userlabel{font-size:12px;font-weight:600;color:#333;margin-left:auto}
+  .admintoggle{border:1px solid var(--line);background:#fff;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;padding:6px 11px;border-radius:8px;color:#555}
+  .admintoggle:hover{border-color:#5a3fd6;color:#5a3fd6}
+  .admintoggle .arw{display:inline-block;transition:transform .18s;font-size:10px}
+  .admintoggle.open .arw{transform:rotate(180deg)}
+  .adminpanel{display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center;margin-left:6px}
+  #resetResvBtn{border-color:#f3c4c4;color:#c0392b}
+  #resetResvBtn:hover{background:#fdecec}
   .signbar{max-width:900px;margin:0 auto;padding:2px 20px 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .signbar .signlabel{font-size:12px;font-weight:600;color:#444}
   .signbar input{padding:7px 11px;font-size:13px;border:1px solid var(--line);border-radius:8px;outline:none;font-family:inherit;width:120px}
@@ -244,13 +251,16 @@
   </div>
   <div class="dataio">
     <span id="adminIO" hidden>
-      <button id="exportBtn" title="Télécharge le suivi dans un fichier">⬇ Exporter le suivi</button>
-      <button id="importBtn" title="Recharge un suivi depuis un fichier">⬆ Importer suivi</button>
-      <input type="file" id="importFile" accept="application/json,.json" hidden>
-      <button id="csvBtn" title="Importer un CSV de marques (en masse)">📥 Importer marques (CSV)</button>
-      <input type="file" id="csvFile" accept=".csv,text/csv" hidden>
-      <button id="namesBtn" title="Exporte la liste des marques déjà présentes (à donner à l'IA pour éviter les doublons)">📋 Liste marques (anti-doublon)</button>
-      <span class="io-hint">Réservé aux admins</span>
+      <button id="adminToggle" class="admintoggle">🛠 Admin <span class="arw">▾</span></button>
+      <span id="adminPanel" class="adminpanel" hidden>
+        <button id="exportBtn" title="Télécharge le suivi dans un fichier">⬇ Exporter le suivi</button>
+        <button id="importBtn" title="Recharge un suivi depuis un fichier">⬆ Importer suivi</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+        <button id="csvBtn" title="Importer un CSV de marques (en masse)">📥 Importer marques (CSV)</button>
+        <input type="file" id="csvFile" accept=".csv,text/csv" hidden>
+        <button id="namesBtn" title="Exporte la liste des marques déjà présentes">📋 Liste marques</button>
+        <button id="resetResvBtn" title="Libère toutes les réservations du jour (test)">🧹 Reset réservations</button>
+      </span>
     </span>
     <span id="userLabel" class="userlabel"></span>
     <button id="logoutBtn">Se déconnecter</button>
@@ -2155,6 +2165,8 @@ async function reserveMore(target){
     for(const sec of data){ for(const it of sec.items){
       const b=it.b, st=get(b);
       if(st.dm || isDead(it)) continue;
+      if(it.search || !it.h) continue;      // seulement des comptes contactables (handle direct)
+      if(isAlc(it, sec)) continue;          // pas d'alcool (masqué de toute façon)
       if(st.rby && st.rday===today) continue;
       cand.push(b);
     }}
@@ -2628,7 +2640,26 @@ async function importBrandsCSV(file){
     a.download='marques-existantes-'+new Date().toISOString().slice(0,10)+'.txt';
     a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   });
+  // onglet admin déroulant
+  const at=document.getElementById('adminToggle'), ap=document.getElementById('adminPanel');
+  if(at&&ap){ at.addEventListener('click', ()=>{ ap.hidden=!ap.hidden; at.classList.toggle('open', !ap.hidden); }); }
+  // reset des réservations du jour (debug admin)
+  const rr=document.getElementById('resetResvBtn');
+  if(rr) rr.addEventListener('click', resetReservations);
 })();
+
+async function resetReservations(){
+  if(!SUP){ alert('Disponible seulement en mode Supabase.'); return; }
+  if(!confirm('Libérer TOUTES les réservations du jour (pour test) ? Ça remet à zéro pour tout le monde.')) return;
+  const today = quotaDay();
+  const { error } = await SUP.from('brand_status').update({reserved_by:null, reserved_day:null}).eq('reserved_day', today);
+  if(error){ alert('Erreur : '+error.message); return; }
+  // enlève les repères locaux pour re-tester proprement
+  try{ Object.keys(localStorage).forEach(k=>{ if(k.indexOf('resvdone_'+today)===0 || k.indexOf('quota_'+today)===0) localStorage.removeItem(k); }); }catch(e){}
+  freedToday=false; myQuotaToday=0;
+  await loadState(); render(q.value); updateStats();
+  alert('Réservations du jour réinitialisées ✓');
+}
 </script>
 </body>
 </html>
