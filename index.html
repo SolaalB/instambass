@@ -1792,6 +1792,7 @@ function visibleOk(it){ return !isDead(it); }
 // filtres alcool & comptes directs
 let hideAlc = true, directOnly = false;
 function isAlc(it, sec){ return !!it.alc || /spiritueux|\bvin\b|alcool|bi[eè]re|champagne|\bwine\b|\bspirit/i.test(sec.cat); }
+function isPetKids(sec){ return /\bpet\b|b[eé]b[eé]|baby|enfant|animaux|\banimal\b|\bkids\b|chien|chat|jouet|toys/i.test(sec.cat||''); }
 function alcOk(it, sec){ return !hideAlc || !isAlc(it, sec); }
 function directOk(it){ return !directOnly || (!!it.h && !it.search && !it.flag); }
 function textMatch(it, sec, f){
@@ -2079,11 +2080,12 @@ document.getElementById('resvMoreBtn').addEventListener('click', async ()=>{
   if(!n || n<1){ inp.focus(); return; }
   const btn=document.getElementById('resvMoreBtn'); btn.textContent='…';
   const got = await reserveMore(n);
-  myQuotaToday = (myQuotaToday||DAILY_CAP||0) + n; DAILY_CAP = myQuotaToday;
+  myQuotaToday = (myQuotaToday||DAILY_CAP||0) + got; DAILY_CAP = myQuotaToday;
   freedToday = false;
   render(q.value); updateStats();
   btn.textContent='Réserver'; inp.value='';
-  alert(got+' marques réservées en plus ✓');
+  if(got < n){ alert('⚠️ Seulement '+got+' marques réservées sur '+n+' demandées — pas assez de marques libres dans la base.'); }
+  else { alert(got+' marques réservées en plus ✓'); }
 });
 
 // --- Panneau admin : liste des comptes, rôles, quotas ---
@@ -2169,7 +2171,11 @@ async function ensureReservations(){
   const got = await reserveMore(target);
   localStorage.setItem(flag,'1');
   render(q.value); updateStats();
-  alert(got+' marques réservées rien que pour toi ✓  (quota '+quota+' + 10 %).');
+  if(got < target){
+    alert('⚠️ Seulement '+got+' marques réservées sur '+target+' demandées.\n\nIl n\'y a pas assez de marques LIBRES dans la base (les autres sont déjà réservées ou démarchées). Solutions : ajoute des marques (import CSV), ou libère des réservations (⚙ Admin → 🧹 à côté des comptes).');
+  } else {
+    alert(got+' marques réservées rien que pour toi ✓  (quota '+quota+' + 10 %).');
+  }
 }
 async function reserveMore(target){
   if(!SUP || !currentUser) return 0;
@@ -2178,9 +2184,10 @@ async function reserveMore(target){
   const cand=[];
   for(const sec of data){ for(const it of sec.items){
     const b=it.b, st=get(b);
-    if(st.dm || isDead(it)) continue;
+    if(st.dm || isDead(it)) continue;        // jamais contactée, pas de lien mort / incontactable
     if(it.search || !it.h) continue;         // seulement des comptes contactables (handle direct)
     if(isAlc(it, sec)) continue;             // pas d'alcool
+    if(isPetKids(sec)) continue;             // pas d'animaux ni d'enfants/bébé
     if(st.rby && st.rday===today) continue;  // déjà réservé (moi ou un autre)
     cand.push(b);
   }}
