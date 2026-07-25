@@ -1744,9 +1744,14 @@ let state = {};
 async function loadState(){
   if(SUP){
     state = {};
-    const { data, error } = await SUP.from('brand_status').select('*');
-    if(!error && data){
+    // pagination : Supabase renvoie 1000 lignes max par requête
+    let from=0; const PAGE=1000;
+    while(true){
+      const { data, error } = await SUP.from('brand_status').select('*').range(from, from+PAGE-1);
+      if(error || !data) break;
       data.forEach(r=>{ state[r.brand] = {dm:r.dm, status:r.status, broken:r.broken, dmDay:r.dm_day, by:r.updated_by, rby:r.reserved_by, rday:r.reserved_day}; });
+      if(data.length < PAGE) break;
+      from += PAGE;
     }
   } else {
     try { state = JSON.parse(localStorage.getItem(stateKey())) || {}; } catch(e){ state = {}; }
@@ -2199,11 +2204,12 @@ async function ensureReservations(){
     alert(got+' marques réservées rien que pour toi ✓  (quota '+quota+' + 10 %).\nStock libre restant : '+countFreePool()+' marques.');
   }
 }
-async function reserveMore(target){
-  if(!SUP || !currentUser) return 0;
-  const today = quotaDay();
-  await loadState();                         // état frais (réservations actuelles des autres)
-  const cand=[];
+function myReservedCount(){
+  const today=quotaDay(), me=myEmailLC();
+  return Object.values(state).filter(v=> v && v.rby && v.rday===today && String(v.rby).toLowerCase()===me).length;
+}
+function freeCandidates(){
+  const today = quotaDay(); const out=[];
   for(const sec of data){ for(const it of sec.items){
     const b=it.b, st=get(b);
     if(st.dm || isDead(it)) continue;        // jamais contactée, pas de lien mort / incontactable
@@ -2211,23 +2217,42 @@ async function reserveMore(target){
     if(isAlc(it, sec)) continue;             // pas d'alcool
     if(isPetKids(sec)) continue;             // pas d'animaux ni d'enfants/bébé
     if(st.rby && st.rday===today) continue;  // déjà réservé (moi ou un autre)
-    cand.push(b);
+    out.push(b);
   }}
-  const pick = cand.slice(0, target);
-  if(!pick.length){ return 0; }
-  const rows = pick.map(b=>{ const st=get(b); return {
-    brand:b, dm:!!st.dm, status:st.status||null, broken:!!st.broken,
-    dm_day:st.dmDay||null, updated_by:st.by||null, updated_at:new Date().toISOString(),
-    reserved_by: currentUser.email, reserved_day: today
-  }; });
-  const { error } = await SUP.from('brand_status').upsert(rows, { onConflict:'brand' });
-  if(error){
-    alert("Réservation impossible : "+error.message+"\n\nVérifie que tu as bien lancé « supabase-reservations.sql » (colonnes reserved_by / reserved_day).");
-    return 0;
+  return out;
+}
+// Réserve jusqu'à obtenir `target` NOUVELLES marques, par lots, tant qu'il reste du stock libre.
+async function reserveMore(target){
+  if(!SUP || !currentUser) return 0;
+  const today = quotaDay();
+  await loadState();
+  const startCount = myReservedCount();
+  let obtained = 0, guard = 0, lastErr = null;
+  while(obtained < target && guard < 40){
+    guard++;
+    const cand = freeCandidates();
+    if(!cand.length) break;                                   // stock libre épuisé
+    const need = target - obtained;
+    const pick = cand.slice(0, Math.min(need, 50));            // par lots de 50 max
+    const rows = pick.map(b=>{ const st=get(b); return {
+      brand:b, dm:!!st.dm, status:st.status||null, broken:!!st.broken,
+      dm_day:st.dmDay||null, updated_by:st.by||null, updated_at:new Date().toISOString(),
+      reserved_by: currentUser.email, reserved_day: today
+    }; });
+    const { error } = await SUP.from('brand_status').upsert(rows, { onConflict:'brand' });
+    if(error){ lastErr = error; break; }
+    // on relit la base pour compter ce qui a VRAIMENT été réservé
+    await loadState();
+    const now = myReservedCount();
+    const gained = now - startCount - obtained;
+    obtained = now - startCount;
+    if(gained <= 0) break;                                     // plus de progrès -> on arrête
   }
-  pick.forEach(b=>{ const c=get(b); c.rby=currentUser.email; c.rday=today; state[b]=c; });
-  await loadState(); render(q.value);
-  return pick.length;
+  if(lastErr){
+    alert("Réservation impossible : "+lastErr.message+"\n\nVérifie que « supabase-reservations.sql » a bien été lancé (colonnes reserved_by / reserved_day).");
+  }
+  render(q.value);
+  return obtained;
 }
 async function freeMyReservations(){
   if(!SUP || !currentUser) return;
@@ -2605,10 +2630,16 @@ if(SUP){
   async function pollRefresh(){
     if(!currentUser || document.hidden) return;
     try{
-      const { data, error } = await SUP.from('brand_status').select('*');
-      if(error || !data) return;
+      let all=[], from=0; const PAGE=1000;
+      while(true){
+        const { data, error } = await SUP.from('brand_status').select('*').range(from, from+PAGE-1);
+        if(error || !data) return;
+        all = all.concat(data);
+        if(data.length < PAGE) break;
+        from += PAGE;
+      }
       const fresh = {};
-      data.forEach(r=>{ fresh[r.brand] = {dm:r.dm, status:r.status, broken:r.broken, dmDay:r.dm_day, by:r.updated_by, rby:r.reserved_by, rday:r.reserved_day}; });
+      all.forEach(r=>{ fresh[r.brand] = {dm:r.dm, status:r.status, broken:r.broken, dmDay:r.dm_day, by:r.updated_by, rby:r.reserved_by, rday:r.reserved_day}; });
       if(JSON.stringify(fresh) !== JSON.stringify(state)){ state = fresh; reRender(); }
       updateStats();
     }catch(e){}
@@ -2624,9 +2655,15 @@ let communityBrands = [];
 async function loadBrands(){
   if(!SUP) return;
   try{
-    const { data:rows, error } = await SUP.from('brands').select('brand,handle,tt,fr,category');
-    if(error || !rows) return;
-    communityBrands = rows;
+    let all=[], from=0; const PAGE=1000;
+    while(true){
+      const { data:rows, error } = await SUP.from('brands').select('brand,handle,tt,fr,category').range(from, from+PAGE-1);
+      if(error || !rows) break;
+      all = all.concat(rows);
+      if(rows.length < PAGE) break;
+      from += PAGE;
+    }
+    communityBrands = all;
     mergeCommunity();
   }catch(e){}
 }
