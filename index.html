@@ -198,6 +198,7 @@
   .resv{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:1px 7px;margin-left:8px;vertical-align:middle}
   .resv.other{background:#eeeef3;color:#7a7a8a}
   .resv.me{background:#efe9ff;color:#5a3fd6}
+  .resv.done{background:#e7f6ec;color:#2f7d43}
   .lockmsg{font-size:12px;color:#9a9aa5;font-style:italic;padding:8px 4px}
   .row.refus{background:#fdecec;border-color:#f3c4c4}
   .row.refus .brand{color:#c0392b}
@@ -1841,10 +1842,13 @@ function searchUrl(name,net){
 
 function buildRow(it){
       const st = get(it.b);
+      const meLC = myEmailLC();
       const lockedByOther = reservedByOther(it);
+      const dmByOther = !!(st.dm && st.by && String(st.by).toLowerCase()!==meLC);
+      const locked = lockedByOther || dmByOther;   // pris par quelqu'un d'autre -> intouchable
       const mine = reservedByMe(it);
       const row = document.createElement('div');
-      row.className = 'row' + (lockedByOther ? ' locked' : (mine ? ' mine' : (st.dm ? ' done' : '')));
+      row.className = 'row' + (locked ? ' locked' : (mine ? ' mine' : (st.dm ? ' done' : '')));
       const name = document.createElement('div');
       name.className = 'name';
       const brand = document.createElement('div');
@@ -1852,7 +1856,9 @@ function buildRow(it){
       brand.textContent = it.b;
       if(it.flag){const f=document.createElement('span');f.className='flag';f.textContent='à vérifier';brand.appendChild(f);}
       if(lockedByOther){ const r=document.createElement('span'); r.className='resv other'; r.textContent='🔒 réservé par '+shortName(reservedBy(it)); brand.appendChild(r); }
+      else if(dmByOther){ const r=document.createElement('span'); r.className='resv done'; r.textContent='✓ fait par '+shortName(st.by); brand.appendChild(r); }
       else if(mine){ const r=document.createElement('span'); r.className='resv me'; r.textContent='★ réservé (toi)'; brand.appendChild(r); }
+      else if(st.dm){ const r=document.createElement('span'); r.className='resv me'; r.textContent='✓ fait (toi)'; brand.appendChild(r); }
       name.appendChild(brand);
       const handle = document.createElement('div');
       handle.className = 'handle';
@@ -1862,9 +1868,9 @@ function buildRow(it){
 
       const actions = document.createElement('div');
       actions.className = 'actions';
-      // Réservé par quelqu'un d'autre -> verrouillé, pas d'actions
-      if(lockedByOther){
-        const lk=document.createElement('span'); lk.className='lockmsg'; lk.textContent='Chasse gardée'; actions.appendChild(lk);
+      // Pris par quelqu'un d'autre (réservé OU déjà DM) -> verrouillé, pas d'actions
+      if(locked){
+        const lk=document.createElement('span'); lk.className='lockmsg'; lk.textContent = dmByOther ? 'Déjà démarchée' : 'Chasse gardée'; actions.appendChild(lk);
         row.appendChild(actions);
         return row;
       }
@@ -2217,19 +2223,28 @@ let queue = [], qIdx = 0;
 function buildQueue(){
   const f = (q.value||'').toLowerCase().trim();
   queue = [];
-  // Priorité à MES marques réservées ; sinon les libres (non réservées). Jamais celles des autres, ni les mortes.
-  const anyReserved = Object.values(state).some(v=> v && v.rby && v.rday===quotaDay() && (v.rby||'').toLowerCase()===myEmailLC());
+  const reservedMode = !!(SUP && currentUser);   // en mode comptes : file = UNIQUEMENT mes marques réservées
   data.forEach(sec => sec.items.forEach(it => {
     if(isDead(it) || get(it.b).dm) return;
-    if(reservedByOther(it)) return;                 // chasse gardée
-    if(anyReserved && !reservedByMe(it)) return;    // si j'ai des réservations, je ne fais que les miennes
+    if(reservedMode){
+      if(!reservedByMe(it)) return;               // rien d'autre que MES réservations
+    } else {
+      if(reservedByOther(it)) return;             // mode local : au moins pas celles des autres
+    }
     if(textMatch(it,sec,f) && modeOk(it) && alcOk(it,sec) && directOk(it))
       queue.push({it, sec});
   }));
 }
 function openQueue(){
   buildQueue();
-  if(!queue.length){ alert("Aucune marque à envoyer avec les filtres actuels (essaie « À faire »)."); return; }
+  if(!queue.length){
+    if(SUP && currentUser){
+      alert("Tu n'as aucune marque réservée à envoyer.\n\nRéserves-en via ⚙ Réglages → « Réserver plus de marques », ou reconnecte-toi pour saisir ton quota du jour.");
+    } else {
+      alert("Aucune marque à envoyer avec les filtres actuels.");
+    }
+    return;
+  }
   qIdx = 0; overlay.hidden = false; stepQueue();
 }
 function closeQueue(){ overlay.hidden = true; render(q.value); }
