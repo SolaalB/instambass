@@ -183,6 +183,13 @@
   select.status{font-size:13px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer;color:#333;font-family:inherit}
   .row.done{background:#f2fbf4;border-color:#cdebd4}
   .row.done .brand{color:#2f7d43}
+  .row.locked{background:#f6f6f8;border-color:#e6e6ee;opacity:.72}
+  .row.locked .brand{color:#8a8a8a}
+  .row.mine{background:#fbf9ff;border-color:#e2d9ff}
+  .resv{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:1px 7px;margin-left:8px;vertical-align:middle}
+  .resv.other{background:#eeeef3;color:#7a7a8a}
+  .resv.me{background:#efe9ff;color:#5a3fd6}
+  .lockmsg{font-size:12px;color:#9a9aa5;font-style:italic;padding:8px 4px}
   .row.refus{background:#fdecec;border-color:#f3c4c4}
   .row.refus .brand{color:#c0392b}
   .row.refus select.status{border-color:#e6a9a9;color:#c0392b}
@@ -267,6 +274,14 @@
     <label class="setfull">E-mail de contact<input id="sigEmail" type="email" placeholder="ton.mail@exemple.com" autocomplete="off"></label>
     <label class="setfull">Téléphone de contact<input id="sigPhone" type="tel" placeholder="+33 6 ..." autocomplete="off"></label>
     <button id="setSave" class="setbtn">Enregistrer</button>
+
+    <hr>
+    <h3>🎯 Réserver plus de marques</h3>
+    <p class="setsub">Ajoute des marques rien que pour toi (personne d'autre ne pourra les prendre).</p>
+    <div class="setgrid" style="align-items:flex-end">
+      <label>Combien en plus ?<input id="resvMore" type="number" min="1" placeholder="ex : 20"></label>
+      <button id="resvMoreBtn" class="setbtn" style="margin:0 0 10px">Réserver</button>
+    </div>
 
     <div id="adminSection" hidden>
       <hr>
@@ -1718,7 +1733,7 @@ async function loadState(){
     state = {};
     const { data, error } = await SUP.from('brand_status').select('*');
     if(!error && data){
-      data.forEach(r=>{ state[r.brand] = {dm:r.dm, status:r.status, broken:r.broken, dmDay:r.dm_day, by:r.updated_by}; });
+      data.forEach(r=>{ state[r.brand] = {dm:r.dm, status:r.status, broken:r.broken, dmDay:r.dm_day, by:r.updated_by, rby:r.reserved_by, rday:r.reserved_day}; });
     }
   } else {
     try { state = JSON.parse(localStorage.getItem(stateKey())) || {}; } catch(e){ state = {}; }
@@ -1750,6 +1765,17 @@ function modeOk(it){
 }
 function isRefus(it){ return get(it.b).status === REFUS; }
 
+// --- réservations ---
+function myEmailLC(){ return (currentUser && currentUser.email) ? currentUser.email.toLowerCase() : ''; }
+function shortName(email){ if(!email) return '?'; const p=String(email).split('@')[0]; return p.charAt(0).toUpperCase()+p.slice(1); }
+function reservedBy(it){ const st=get(it.b); return (st.rby && st.rday===quotaDay()) ? st.rby : null; } // e-mail du réservataire (aujourd'hui) ou null
+function reservedByOther(it){ const r=reservedBy(it); return r && r.toLowerCase()!==myEmailLC(); }
+function reservedByMe(it){ const r=reservedBy(it); return r && r.toLowerCase()===myEmailLC(); }
+// marque "supprimée" (lien mort / incontactable) -> masquée partout
+function isDead(it){ const st=get(it.b); return !!st.broken || st.status===REFUS; }
+// visible dans la liste : pas morte, et pas réservée par quelqu'un d'autre... NON : on l'affiche mais verrouillée. Ici on masque seulement les mortes.
+function visibleOk(it){ return !isDead(it); }
+
 // filtres alcool & comptes directs
 let hideAlc = true, directOnly = false;
 function isAlc(it, sec){ return !!it.alc || /spiritueux|\bvin\b|alcool|bi[eè]re|champagne|\bwine\b|\bspirit/i.test(sec.cat); }
@@ -1762,7 +1788,9 @@ function textMatch(it, sec, f){
 const list = document.getElementById('list');
 const q = document.getElementById('q');
 
-let DAILY_CAP = 60;   // quota/jour, ajustable par un admin (Supabase)
+let DAILY_CAP = 60;   // quota/jour du compte connecté
+let myQuotaToday = 0; // quota saisi aujourd'hui
+let freedToday = false; // marques déjà libérées après quota atteint
 let myProfile = null; // profil du compte connecté (Supabase)
 let isAdmin = false;
 // "jour quota" : bascule à 2h du matin (heure locale). Avant 2h => jour précédent.
@@ -1801,14 +1829,18 @@ function searchUrl(name,net){
 
 function buildRow(it){
       const st = get(it.b);
+      const lockedByOther = reservedByOther(it);
+      const mine = reservedByMe(it);
       const row = document.createElement('div');
-      row.className = 'row' + (isRefus(it) ? ' refus' : (st.dm ? ' done' : ''));
+      row.className = 'row' + (lockedByOther ? ' locked' : (mine ? ' mine' : (st.dm ? ' done' : '')));
       const name = document.createElement('div');
       name.className = 'name';
       const brand = document.createElement('div');
       brand.className = 'brand';
       brand.textContent = it.b;
       if(it.flag){const f=document.createElement('span');f.className='flag';f.textContent='à vérifier';brand.appendChild(f);}
+      if(lockedByOther){ const r=document.createElement('span'); r.className='resv other'; r.textContent='🔒 réservé par '+shortName(reservedBy(it)); brand.appendChild(r); }
+      else if(mine){ const r=document.createElement('span'); r.className='resv me'; r.textContent='★ réservé (toi)'; brand.appendChild(r); }
       name.appendChild(brand);
       const handle = document.createElement('div');
       handle.className = 'handle';
@@ -1818,6 +1850,12 @@ function buildRow(it){
 
       const actions = document.createElement('div');
       actions.className = 'actions';
+      // Réservé par quelqu'un d'autre -> verrouillé, pas d'actions
+      if(lockedByOther){
+        const lk=document.createElement('span'); lk.className='lockmsg'; lk.textContent='Chasse gardée'; actions.appendChild(lk);
+        row.appendChild(actions);
+        return row;
+      }
       if(it.search){
         const igs = document.createElement('a');
         igs.className='btn search-btn'; igs.href=searchUrl(it.cn||it.b,"ig"); igs.target="_blank";
@@ -1877,6 +1915,7 @@ function buildRow(it){
         state[it.b] = cur;
         save(it.b);
         render(q.value);
+        checkQuotaFree();
       });
       dmLabel.appendChild(cb);
       dmLabel.appendChild(document.createTextNode("DM envoyé"));
@@ -1929,17 +1968,14 @@ function render(filter){
   };
   if(sorter){
     const all=[];
-    data.forEach(sec=>sec.items.forEach(it=>{ if(textOk(it)&&modeOk(it)&&alcOk(it,sec)&&directOk(it)) all.push(it); }));
-    addSection('Toutes les marques ('+all.filter(it=>!isRefus(it)).length+')', '', all.filter(it=>!isRefus(it)).sort(sorter));
-    addSection('Refus / Injoignables', 'refus', all.filter(it=>isRefus(it)).sort(sorter));
+    data.forEach(sec=>sec.items.forEach(it=>{ if(visibleOk(it)&&textOk(it)&&modeOk(it)&&alcOk(it,sec)&&directOk(it)) all.push(it); }));
+    all.sort(sorter);
+    addSection('Toutes les marques ('+all.length+')', '', all);
   } else {
-    const refusList = [];
     data.forEach(sec=>{
-      const matches = sec.items.filter(it => textOk(it) && modeOk(it) && alcOk(it,sec) && directOk(it));
-      matches.forEach(it=>{ if(isRefus(it)) refusList.push(it); });
-      addSection(sec.cat, '', matches.filter(it => !isRefus(it)));
+      const matches = sec.items.filter(it => visibleOk(it) && textOk(it) && modeOk(it) && alcOk(it,sec) && directOk(it));
+      addSection(sec.cat, '', matches);
     });
-    addSection('Refus / Injoignables', 'refus', refusList);
   }
   if(!total){
     const p=document.createElement('p');p.className='count';p.textContent="Aucune marque trouvée.";list.appendChild(p);
@@ -2020,6 +2056,17 @@ document.getElementById('setSave').addEventListener('click', async ()=>{
   b.classList.add('ok'); b.textContent = 'Enregistré ✓';
   setTimeout(()=>{ b.classList.remove('ok'); b.textContent = 'Enregistrer'; closeSettings(); }, 900);
 });
+document.getElementById('resvMoreBtn').addEventListener('click', async ()=>{
+  const inp=document.getElementById('resvMore'); const n=parseInt(inp.value);
+  if(!n || n<1){ inp.focus(); return; }
+  const btn=document.getElementById('resvMoreBtn'); btn.textContent='…';
+  const got = await reserveMore(n);
+  myQuotaToday = (myQuotaToday||DAILY_CAP||0) + n; DAILY_CAP = myQuotaToday;
+  freedToday = false;
+  render(q.value); updateStats();
+  btn.textContent='Réserver'; inp.value='';
+  alert(got+' marques réservées en plus ✓');
+});
 
 // --- Panneau admin : liste des comptes, rôles, quotas ---
 async function loadAdminUsers(){
@@ -2077,14 +2124,81 @@ directToggle.addEventListener('click', ()=>{
   render(q.value);
 });
 
+// --- Réservations ---
+async function ensureReservations(){
+  if(!SUP || !currentUser) return;
+  const today = quotaDay();
+  const qKey='quota_'+today+'_'+currentUser.email;
+  const savedQ = parseInt(localStorage.getItem(qKey)||'0');
+  if(savedQ>0){ myQuotaToday=savedQ; DAILY_CAP=savedQ; }
+  const already = Object.values(state).some(v=> v && v.rby && v.rday===today && (v.rby||'').toLowerCase()===myEmailLC());
+  const flag='resvdone_'+today+'_'+currentUser.email;
+  if(already || localStorage.getItem(flag)){ updateStats(); return; }
+  const def = myQuotaToday || (myProfile && myProfile.daily_quota) || DAILY_CAP || 60;
+  const ans = prompt("Bienvenue ! Combien de DM comptes-tu envoyer aujourd'hui ?\n(Je te réserve ce nombre de marques + 10 %, rien que pour toi — personne d'autre ne pourra les prendre.)", def);
+  if(ans===null) return;
+  let quota = parseInt(ans); if(!quota || quota<1) quota = def;
+  myQuotaToday = quota; DAILY_CAP = quota;
+  localStorage.setItem(qKey, String(quota));
+  const target = Math.ceil(quota*1.10);
+  const got = await reserveMore(target);
+  localStorage.setItem(flag,'1');
+  render(q.value); updateStats();
+  alert(got+' marques réservées rien que pour toi ✓  (quota '+quota+' + 10 %).');
+}
+async function reserveMore(target){
+  if(!SUP || !currentUser) return 0;
+  const today=quotaDay(); let need=target, gotTotal=0, tries=0;
+  while(need>0 && tries<5){
+    tries++;
+    const cand=[];
+    for(const sec of data){ for(const it of sec.items){
+      const b=it.b, st=get(b);
+      if(st.dm || isDead(it)) continue;
+      if(st.rby && st.rday===today) continue;
+      cand.push(b);
+    }}
+    if(!cand.length) break;
+    const pick = cand.slice(0, need);
+    let claimed=[];
+    try{
+      const { data:res, error } = await SUP.rpc('reserve_brands', { p_brands: pick, p_day: today, p_email: currentUser.email });
+      if(error){ console.log('reserve error', error); break; }
+      claimed = (res||[]).map(x=> typeof x==='string' ? x : (x && (x.brand || x.reserve_brands || Object.values(x)[0])) );
+    }catch(e){ break; }
+    claimed.forEach(b=>{ const c=get(b); c.rby=currentUser.email; c.rday=today; state[b]=c; });
+    gotTotal += claimed.length; need -= claimed.length;
+    if(!claimed.length) break;
+  }
+  await loadState();
+  return gotTotal;
+}
+async function freeMyReservations(){
+  if(!SUP || !currentUser) return;
+  try{ await SUP.rpc('free_my_reservations', { p_day: quotaDay(), p_email: currentUser.email }); }catch(e){}
+  await loadState(); render(q.value);
+}
+function checkQuotaFree(){
+  if(!SUP || !currentUser || freedToday) return;
+  const today=quotaDay(); const me=myEmailLC();
+  const n=Object.values(state).filter(v=> v && v.dm && v.dmDay===today && (v.by||'').toLowerCase()===me).length;
+  const quota = myQuotaToday || DAILY_CAP || 60;
+  if(n>=quota){ freedToday=true; freeMyReservations(); }
+}
+
 // --- Mode file d'envoi ---
 const overlay = document.getElementById('queueOverlay');
 let queue = [], qIdx = 0;
 function buildQueue(){
   const f = (q.value||'').toLowerCase().trim();
   queue = [];
+  // Priorité à MES marques réservées ; sinon les libres (non réservées). Jamais celles des autres, ni les mortes.
+  const anyReserved = Object.values(state).some(v=> v && v.rby && v.rday===quotaDay() && (v.rby||'').toLowerCase()===myEmailLC());
   data.forEach(sec => sec.items.forEach(it => {
-    if(textMatch(it,sec,f) && modeOk(it) && alcOk(it,sec) && directOk(it) && !get(it.b).dm && !isRefus(it))
+    if(isDead(it) || get(it.b).dm) return;
+    if(reservedByOther(it)) return;                 // chasse gardée
+    if(anyReserved && !reservedByMe(it)) return;    // si j'ai des réservations, je ne fais que les miennes
+    if(textMatch(it,sec,f) && modeOk(it) && alcOk(it,sec) && directOk(it))
       queue.push({it, sec});
   }));
 }
@@ -2161,6 +2275,7 @@ document.getElementById('qSent').addEventListener('click', ()=>{
     if(!cur.status || cur.status==='À contacter') cur.status = 'DM envoyé';
     state[cur0.it.b] = cur; save(cur0.it.b); updateStats();
     celebrate();
+    checkQuotaFree();
   }
   qIdx++; stepQueue();
 });
@@ -2243,8 +2358,10 @@ async function onLoggedIn(user){          // --- mode Supabase ---
   authOverlay.hidden = true;
   ['auFirst','auLast','auEmail','auPass'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   startPresence();   // affiche qui est en ligne
+  freedToday = false;
   // Première connexion : pas encore de téléphone de contact -> ouvre le setup
   if(!myProfile || !myProfile.contact_phone){ openSettings(true); }
+  ensureReservations();   // demande le quota du jour + réserve les marques
 }
 function applyAdminUI(){
   const io = document.getElementById('adminIO');       // boutons Export/Import (admin only)
@@ -2413,7 +2530,7 @@ if(SUP){
   SUP.channel('brand_status_changes')
     .on('postgres_changes', {event:'*', schema:'public', table:'brand_status'}, (payload)=>{
       const r = payload.new;
-      if(r && r.brand){ state[r.brand] = {dm:r.dm, status:r.status, broken:r.broken, dmDay:r.dm_day, by:r.updated_by}; reRender(); updateStats(); }
+      if(r && r.brand){ state[r.brand] = {dm:r.dm, status:r.status, broken:r.broken, dmDay:r.dm_day, by:r.updated_by, rby:r.reserved_by, rday:r.reserved_day}; reRender(); updateStats(); }
     }).subscribe();
   // 2) Secours : sondage toutes les 8 s (garantit une mise à jour même si le temps réel est off)
   async function pollRefresh(){
@@ -2422,7 +2539,7 @@ if(SUP){
       const { data, error } = await SUP.from('brand_status').select('*');
       if(error || !data) return;
       const fresh = {};
-      data.forEach(r=>{ fresh[r.brand] = {dm:r.dm, status:r.status, broken:r.broken, dmDay:r.dm_day, by:r.updated_by}; });
+      data.forEach(r=>{ fresh[r.brand] = {dm:r.dm, status:r.status, broken:r.broken, dmDay:r.dm_day, by:r.updated_by, rby:r.reserved_by, rday:r.reserved_day}; });
       if(JSON.stringify(fresh) !== JSON.stringify(state)){ state = fresh; reRender(); }
       updateStats();
     }catch(e){}
