@@ -2849,7 +2849,7 @@ function applyI18n(){
     Array.from(ss.options).forEach((o,i)=>{ if(opts[i]) o.textContent=t(opts[i]); }); }
   // stats (on garde les <b> avec leurs id)
   const st=document.querySelector('.stats');
-  if(st){ const spans=st.querySelectorAll('span');
+  if(st){ const spans=Array.from(st.children).filter(el=>el.tagName==='SPAN');  // uniquement les libellés, pas la barre
     if(spans[0]) spans[0].innerHTML = t('statToday')+' <b id="stToday">0</b> / '+DAILY_CAP+' <b id="stExtra" class="extra"></b>';
     if(spans[1]) spans[1].innerHTML = t('statTotal')+' <b id="stDm">0</b> / <b id="stTotal">0</b>';
     if(spans[2]) spans[2].innerHTML = t('statFree')+' <b id="stFree">0</b>';
