@@ -42,6 +42,8 @@
   /* roue crantée fixe */
   .gear{position:fixed;top:12px;right:14px;z-index:40;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:#fff;color:#555;font-size:19px;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.08);line-height:1}
   .gear:hover{color:#5a3fd6;border-color:#5a3fd6}
+  .langbtn{position:fixed;top:12px;right:62px;z-index:40;height:40px;padding:0 12px;border-radius:99px;border:1px solid var(--line);background:#fff;color:#555;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.08);font-family:inherit}
+  .langbtn:hover{color:#5a3fd6;border-color:#5a3fd6}
   /* présence (qui est en ligne) */
   .presence{position:fixed;top:12px;left:14px;z-index:41}
   .presence-btn{border:1px solid var(--line);background:#fff;border-radius:99px;padding:8px 13px;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.08);display:flex;align-items:center;gap:7px;color:#333}
@@ -99,6 +101,8 @@
   .tools .tool.on{background:#eef1ff;border-color:#5a3fd6;color:#3b4cca}
   .tools .tool.primary{background:#5a3fd6;color:#fff;border-color:#5a3fd6}
   .tools .tool.primary:hover{opacity:.9}
+  .tools .done-tool{background:#eefaf1;border-color:#cdebd4;color:#2f7d43}
+  .tools .done-tool:hover{background:#ddf5e4;border-color:#2f9e57}
   .tools .sortsel{border:1px solid var(--line);background:#fff;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;padding:7px 10px;border-radius:8px;color:#555}
   .tools .sortsel:hover{border-color:#bbb}
   /* quota dans le mode file d'envoi */
@@ -239,6 +243,7 @@
     <button id="queueBtn" class="tool primary">▶ Mode file d'envoi</button>
     <button id="alcToggle" class="tool on">🚫 Alcool masqué</button>
     <button id="directToggle" class="tool">✔︎ Comptes directs seulement</button>
+    <button id="doneBtn" class="tool done-tool" title="Libère toutes tes marques réservées pour les autres">✅ Terminé — libérer mes réservations</button>
     <select id="sortSel" class="sortsel" title="Trier les marques">
       <option value="default">Tri : par catégorie</option>
       <option value="az">Nom A → Z</option>
@@ -269,6 +274,7 @@
     <button id="logoutBtn">Se déconnecter</button>
   </div>
 </div>
+<button id="langBtn" class="langbtn" title="Changer de langue / Switch language">🌐 <span id="langLabel">FR</span></button>
 <button id="gearBtn" class="gear" title="Réglages" aria-label="Réglages">⚙</button>
 <div id="presenceWrap" class="presence" hidden>
   <button id="presenceBtn" class="presence-btn"><span class="dot"></span> <span id="presenceCount">0</span> en ligne</button>
@@ -348,6 +354,77 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+// ===== TRADUCTION FR / EN =====
+const I18N = {
+ fr:{
+  title:"Marques à contacter — Instagram",
+  sub:'Clique sur « DM +copie » pour ouvrir la conversation avec le message déjà copié. Coche <b>DM envoyé</b>, choisis un <b>statut</b>, et filtre entre <b>À faire</b> / <b>Démarchées</b>.',
+  searchPh:"Rechercher une marque… (ex : caron, watches, cookie)",
+  fAll:"Toutes", fTodo:"À faire", fDone:"Démarchées",
+  queueBtn:"▶ Mode file d'envoi", alcOn:"🚫 Alcool masqué", alcOff:"Alcool affiché",
+  directBtn:"✔︎ Comptes directs seulement", doneBtn:"✅ Terminé — libérer mes réservations",
+  sortDefault:"Tri : par catégorie", sortAz:"Nom A → Z", sortZa:"Nom Z → A", sortRecent:"Plus récentes", sortOld:"Plus anciennes",
+  statToday:"DM aujourd'hui :", statTotal:"Total démarchées :", statFree:"🟢 Stock libre :",
+  exportBtn:"⬇ Exporter le suivi", importBtn:"⬆ Importer suivi", csvBtn:"📥 Importer marques (CSV)", namesBtn:"📋 Liste marques",
+  logout:"Se déconnecter", adminBtn:"🛠 Admin",
+  rowDm:"💬 DM +copie", rowProfile:"Profil", rowSearch:"Instagram ⌕", rowCopy:"Copier le message",
+  dmLabel:"DM envoyé", lockedResv:"Chasse gardée", lockedDone:"Déjà démarchée",
+  resvBy:"🔒 réservé par ", doneBy:"✓ fait par ", resvMe:"★ réservé (toi)", doneMe:"✓ fait (toi)",
+  allBrands:"Toutes les marques", noBrand:"Aucune marque trouvée.",
+  qCopy:"Copier le message", qOpen:"💬 Ouvrir le DM", qSkip:"Passer →", qSent:"Envoyé ✓ · Suivant",
+  qBroken:"⚠︎ Lien mort · marquer incontactable", qClose:"✕ Fermer", qBrand:"Marque",
+  qHint:'Raccourcis : <b>C</b> copier · <b>O</b> ouvrir le DM · <b>Entrée</b> envoyé + suivant · <b>S</b> passer · <b>B</b> lien mort · <b>Échap</b> fermer',
+  qQuota:"Ton quota du jour :",
+  setTitle:"Réglages", setWelcomeTitle:"Bienvenue — configuration",
+  setWelcome:"Bienvenue 👋 Renseigne tes coordonnées de contact : elles s'inséreront automatiquement dans les messages que tu envoies.",
+  lbFirst:"Prénom", lbLast:"Nom", lbEmail:"E-mail de contact", lbPhone:"Téléphone de contact",
+  setSave:"Enregistrer", setSaved:"Enregistré ✓",
+  resvTitle:"🎯 Réserver plus de marques", resvSub:"Ajoute des marques rien que pour toi (personne d'autre ne pourra les prendre).",
+  resvHow:"Combien en plus ?", resvGo:"Réserver",
+  adminTitle:"⚙ Administration", adminSub:"Gère les rôles (admin / membre) et les quotas quotidiens de chaque compte.",
+  authLogin:"Connexion", authSignup:"Créer un compte", authSub:"Accède à ta liste et retrouve ton suivi personnel.",
+  authBtnLogin:"Se connecter", authBtnSignup:"Créer mon compte",
+  authNoAcc:"Pas encore de compte ?", authHasAcc:"Déjà un compte ?", authForgot:"Mot de passe oublié ?",
+  presence:"en ligne", presenceHead:"Membres en ligne", presenceEmpty:"Personne pour l'instant",
+  footer:"Vérifie rapidement chaque compte avant l'envoi : certaines marques ont plusieurs comptes régionaux."
+ },
+ en:{
+  title:"Brands to contact — Instagram",
+  sub:'Click “DM +copy” to open the conversation with the message already copied. Tick <b>DM sent</b>, pick a <b>status</b>, and filter between <b>To do</b> / <b>Contacted</b>.',
+  searchPh:"Search a brand… (e.g. caron, watches, cookie)",
+  fAll:"All", fTodo:"To do", fDone:"Contacted",
+  queueBtn:"▶ Sending queue", alcOn:"🚫 Alcohol hidden", alcOff:"Alcohol shown",
+  directBtn:"✔︎ Verified accounts only", doneBtn:"✅ Done — release my reservations",
+  sortDefault:"Sort: by category", sortAz:"Name A → Z", sortZa:"Name Z → A", sortRecent:"Newest first", sortOld:"Oldest first",
+  statToday:"DMs today:", statTotal:"Total contacted:", statFree:"🟢 Free pool:",
+  exportBtn:"⬇ Export tracking", importBtn:"⬆ Import tracking", csvBtn:"📥 Import brands (CSV)", namesBtn:"📋 Brand list",
+  logout:"Log out", adminBtn:"🛠 Admin",
+  rowDm:"💬 DM +copy", rowProfile:"Profile", rowSearch:"Instagram ⌕", rowCopy:"Copy message",
+  dmLabel:"DM sent", lockedResv:"Reserved", lockedDone:"Already contacted",
+  resvBy:"🔒 reserved by ", doneBy:"✓ done by ", resvMe:"★ reserved (you)", doneMe:"✓ done (you)",
+  allBrands:"All brands", noBrand:"No brand found.",
+  qCopy:"Copy message", qOpen:"💬 Open DM", qSkip:"Skip →", qSent:"Sent ✓ · Next",
+  qBroken:"⚠︎ Broken link · mark unreachable", qClose:"✕ Close", qBrand:"Brand",
+  qHint:'Shortcuts: <b>C</b> copy · <b>O</b> open DM · <b>Enter</b> sent + next · <b>S</b> skip · <b>B</b> broken link · <b>Esc</b> close',
+  qQuota:"Your daily quota:",
+  setTitle:"Settings", setWelcomeTitle:"Welcome — setup",
+  setWelcome:"Welcome 👋 Fill in your contact details: they will be inserted automatically into the messages you send.",
+  lbFirst:"First name", lbLast:"Last name", lbEmail:"Contact email", lbPhone:"Contact phone",
+  setSave:"Save", setSaved:"Saved ✓",
+  resvTitle:"🎯 Reserve more brands", resvSub:"Add brands just for you (nobody else can take them).",
+  resvHow:"How many more?", resvGo:"Reserve",
+  adminTitle:"⚙ Administration", adminSub:"Manage roles (admin / member) and daily quotas for each account.",
+  authLogin:"Log in", authSignup:"Create an account", authSub:"Access your list and find your personal tracking.",
+  authBtnLogin:"Log in", authBtnSignup:"Create my account",
+  authNoAcc:"No account yet?", authHasAcc:"Already have an account?", authForgot:"Forgot password?",
+  presence:"online", presenceHead:"Members online", presenceEmpty:"Nobody yet",
+  footer:"Quickly check each account before sending: some brands have several regional accounts."
+ }
+};
+let lang = 'fr';
+try{ lang = localStorage.getItem('marques_lang') || 'fr'; }catch(e){}
+function t(k){ return (I18N[lang] && I18N[lang][k]) || I18N.fr[k] || k; }
+
 // handle = compte confirmé ; search = true => compte non trouvé, lien de recherche
 const data = [
  {cat:"Parfum", items:[
@@ -1878,10 +1955,10 @@ function buildRow(it){
       brand.className = 'brand';
       brand.textContent = it.b;
       if(it.flag){const f=document.createElement('span');f.className='flag';f.textContent='à vérifier';brand.appendChild(f);}
-      if(lockedByOther){ const r=document.createElement('span'); r.className='resv other'; r.textContent='🔒 réservé par '+shortName(reservedBy(it)); brand.appendChild(r); }
-      else if(dmByOther){ const r=document.createElement('span'); r.className='resv done'; r.textContent='✓ fait par '+shortName(st.by); brand.appendChild(r); }
-      else if(mine){ const r=document.createElement('span'); r.className='resv me'; r.textContent='★ réservé (toi)'; brand.appendChild(r); }
-      else if(st.dm){ const r=document.createElement('span'); r.className='resv me'; r.textContent='✓ fait (toi)'; brand.appendChild(r); }
+      if(lockedByOther){ const r=document.createElement('span'); r.className='resv other'; r.textContent=t('resvBy')+shortName(reservedBy(it)); brand.appendChild(r); }
+      else if(dmByOther){ const r=document.createElement('span'); r.className='resv done'; r.textContent=t('doneBy')+shortName(st.by); brand.appendChild(r); }
+      else if(mine){ const r=document.createElement('span'); r.className='resv me'; r.textContent=t('resvMe'); brand.appendChild(r); }
+      else if(st.dm){ const r=document.createElement('span'); r.className='resv me'; r.textContent=t('doneMe'); brand.appendChild(r); }
       name.appendChild(brand);
       const handle = document.createElement('div');
       handle.className = 'handle';
@@ -1893,19 +1970,19 @@ function buildRow(it){
       actions.className = 'actions';
       // Pris par quelqu'un d'autre (réservé OU déjà DM) -> verrouillé, pas d'actions
       if(locked){
-        const lk=document.createElement('span'); lk.className='lockmsg'; lk.textContent = dmByOther ? 'Déjà démarchée' : 'Chasse gardée'; actions.appendChild(lk);
+        const lk=document.createElement('span'); lk.className='lockmsg'; lk.textContent = dmByOther ? t('lockedDone') : t('lockedResv'); actions.appendChild(lk);
         row.appendChild(actions);
         return row;
       }
       if(it.search){
         const igs = document.createElement('a');
         igs.className='btn search-btn'; igs.href=searchUrl(it.cn||it.b,"ig"); igs.target="_blank";
-        igs.textContent="Instagram ⌕"; actions.appendChild(igs);
+        igs.textContent=t('rowSearch'); actions.appendChild(igs);
       }else{
         // 1 clic = copie le message ET ouvre directement le DM (ig.me)
         const dm=document.createElement('a');
         dm.className='btn dmbtn'; dm.href=dmUrl(it.h); dm.target="_blank"; dm.rel="noopener";
-        dm.innerHTML='💬 DM +copie <span class="lang '+(it.fr?'fr':'en')+'">'+(it.fr?'FR':'EN')+'</span>';
+        dm.innerHTML=t('rowDm')+' <span class="lang '+(it.fr?'fr':'en')+'">'+(it.fr?'FR':'EN')+'</span>';
         dm.addEventListener('click', ()=>{
           copyText(messageFor(it), ()=>{});
           dm.classList.add('ok');
@@ -1914,13 +1991,13 @@ function buildRow(it){
         actions.appendChild(dm);
         const ig=document.createElement('a');
         ig.className='btn ig'; ig.href=igUrl(it.h); ig.target="_blank";
-        ig.textContent="Profil"; actions.appendChild(ig);
+        ig.textContent=t('rowProfile'); actions.appendChild(ig);
       }
       // bouton copier le message (marques sans handle direct → pas de DM possible)
       if(it.search){
         const copyBtn = document.createElement('button');
         copyBtn.className = 'btn copy';
-        copyBtn.innerHTML = 'Copier le message <span class="lang '+(it.fr?'fr':'en')+'">'+(it.fr?'FR':'EN')+'</span>';
+        copyBtn.innerHTML = t('rowCopy')+' <span class="lang '+(it.fr?'fr':'en')+'">'+(it.fr?'FR':'EN')+'</span>';
         copyBtn.addEventListener('click', ()=>{
           copyText(messageFor(it), (ok)=>{
             const prev = copyBtn.innerHTML;
@@ -1959,7 +2036,7 @@ function buildRow(it){
         checkQuotaFree();
       });
       dmLabel.appendChild(cb);
-      dmLabel.appendChild(document.createTextNode("DM envoyé"));
+      dmLabel.appendChild(document.createTextNode(t('dmLabel')));
       track.appendChild(dmLabel);
 
       const sel = document.createElement('select');
@@ -2011,7 +2088,7 @@ function render(filter){
     const all=[];
     data.forEach(sec=>sec.items.forEach(it=>{ if(visibleOk(it)&&textOk(it)&&modeOk(it)&&alcOk(it,sec)&&directOk(it)) all.push(it); }));
     all.sort(sorter);
-    addSection('Toutes les marques ('+all.length+')', '', all);
+    addSection(t('allBrands')+' ('+all.length+')', '', all);
   } else {
     data.forEach(sec=>{
       const matches = sec.items.filter(it => visibleOk(it) && textOk(it) && modeOk(it) && alcOk(it,sec) && directOk(it));
@@ -2019,7 +2096,7 @@ function render(filter){
     });
   }
   if(!total){
-    const p=document.createElement('p');p.className='count';p.textContent="Aucune marque trouvée.";list.appendChild(p);
+    const p=document.createElement('p');p.className='count';p.textContent=t('noBrand');list.appendChild(p);
   }
   updateStats();
 }
@@ -2035,6 +2112,20 @@ document.getElementById('filters').addEventListener('click', e=>{
 document.getElementById('sortSel').addEventListener('change', e=>{
   sortMode = e.target.value;
   render(q.value);
+});
+// --- Bouton "Terminé" : libère MES réservations pour les autres ---
+document.getElementById('doneBtn').addEventListener('click', async ()=>{
+  if(!SUP || !currentUser){ alert('Disponible une fois connecté.'); return; }
+  const n = myReservedCount();
+  if(!n){ alert("Tu n'as aucune marque réservée à libérer."); return; }
+  if(!confirm('Libérer tes '+n+' marques réservées ?\n\nElles redeviendront disponibles pour tout le monde. Tes DM déjà envoyés sont conservés.')) return;
+  const btn = document.getElementById('doneBtn'); const old = btn.textContent; btn.textContent = 'Libération…';
+  await freeMyReservations();
+  freedToday = true;
+  updateStats();
+  btn.textContent = '✅ Libéré !';
+  setTimeout(()=>{ btn.textContent = old; }, 1600);
+  alert(n+' marques libérées ✓ Merci !\nStock libre maintenant : '+countFreePool()+' marques.');
 });
 
 render("");
@@ -2164,7 +2255,7 @@ const alcToggle = document.getElementById('alcToggle');
 alcToggle.addEventListener('click', ()=>{
   hideAlc = !hideAlc;
   alcToggle.classList.toggle('on', hideAlc);
-  alcToggle.textContent = hideAlc ? '🚫 Alcool masqué' : 'Alcool affiché';
+  alcToggle.textContent = hideAlc ? t('alcOn') : t('alcOff');
   render(q.value);
 });
 const directToggle = document.getElementById('directToggle');
@@ -2185,7 +2276,7 @@ async function ensureReservations(){
   const flag='resvdone_'+today+'_'+currentUser.email;
   if(already || localStorage.getItem(flag)){ updateStats(); return; }
   const def = myQuotaToday || (myProfile && myProfile.daily_quota) || DAILY_CAP || 60;
-  const ans = prompt("Bienvenue ! Combien de DM comptes-tu envoyer aujourd'hui ?\n(Je te réserve ce nombre de marques + 10 %, rien que pour toi — personne d'autre ne pourra les prendre.)", def);
+  const ans = prompt("Bienvenue ! Combien de DM comptes-tu envoyer aujourd'hui ?\n(Je te réserve ce nombre de marques + 30 % de marge, rien que pour toi — personne d'autre ne pourra les prendre.)", def);
   if(ans===null) return;
   let quota = parseInt(ans); if(!quota || quota<1) quota = def;
   myQuotaToday = quota; DAILY_CAP = quota;
@@ -2194,14 +2285,14 @@ async function ensureReservations(){
   if(SUP && myProfile){
     try{ await SUP.from('profiles').update({daily_quota: quota}).eq('id', myProfile.id); myProfile.daily_quota = quota; }catch(e){}
   }
-  const target = Math.ceil(quota*1.10);
+  const target = Math.ceil(quota*1.30);   // marge d'erreur de 30 % (liens morts, comptes injoignables…)
   const got = await reserveMore(target);
   localStorage.setItem(flag,'1');
   render(q.value); updateStats();
   if(got < target){
     alert('⚠️ Seulement '+got+' marques réservées sur '+target+' demandées.\n\nStock libre restant : '+countFreePool()+' marques.\nLa base n\'a plus assez de marques LIBRES (déjà démarchées ou réservées par l\'équipe). Solution : importer de nouvelles marques (🛠 Admin → 📥 Importer marques CSV).');
   } else {
-    alert(got+' marques réservées rien que pour toi ✓  (quota '+quota+' + 10 %).\nStock libre restant : '+countFreePool()+' marques.');
+    alert(got+' marques réservées rien que pour toi ✓  (quota '+quota+' + 30 % de marge).\nStock libre restant : '+countFreePool()+' marques.');
   }
 }
 function myReservedCount(){
@@ -2310,7 +2401,7 @@ function stepQueue(){
   }
   const body=document.getElementById('qBody'); if(body){ body.classList.remove('stepin'); void body.offsetWidth; body.classList.add('stepin'); }
   const {it, sec} = queue[qIdx];
-  document.getElementById('qCount').textContent = 'Marque '+(qIdx+1)+' / '+queue.length;
+  document.getElementById('qCount').textContent = t('qBrand')+' '+(qIdx+1)+' / '+queue.length;
   document.getElementById('qCat').textContent = sec.cat;
   document.getElementById('qBrand').innerHTML = it.b+' <span class="qlang '+(it.fr?'fr':'en')+'">'+(it.fr?'FR':'EN')+'</span>';
   document.getElementById('qHandle').textContent = it.h ? ('@'+it.h) : 'compte à rechercher';
@@ -2329,7 +2420,7 @@ function updateQueueQuota(){
   const n = Object.values(state).filter(v=> v && v.dm && v.dmDay===today && (!personal || ((v.by||'').toLowerCase()===myEmail))).length;
   const pct = Math.min(n/DAILY_CAP*100, 100);
   el.classList.toggle('full', n>=DAILY_CAP);
-  el.innerHTML = 'Ton quota du jour : '+Math.min(n,DAILY_CAP)+' / '+DAILY_CAP+(n>DAILY_CAP?' (+ '+(n-DAILY_CAP)+')':'')+
+  el.innerHTML = t('qQuota')+' '+Math.min(n,DAILY_CAP)+' / '+DAILY_CAP+(n>DAILY_CAP?' (+ '+(n-DAILY_CAP)+')':'')+
                  '<div class="qbar"><span style="width:'+pct+'%"></span></div>';
 }
 document.getElementById('queueBtn').addEventListener('click', openQueue);
@@ -2429,10 +2520,10 @@ function authError(msg){ const e=document.getElementById('authError'); if(msg){ 
 function setAuthMode(m){
   authMode=m;
   document.getElementById('signupFields').hidden = (m!=='signup');
-  document.getElementById('authTitle').textContent = m==='signup' ? 'Créer un compte' : 'Connexion';
-  document.getElementById('auSubmit').textContent = m==='signup' ? 'Créer mon compte' : 'Se connecter';
-  document.getElementById('auToggleText').textContent = m==='signup' ? 'Déjà un compte ?' : 'Pas encore de compte ?';
-  document.getElementById('auToggle').textContent = m==='signup' ? 'Se connecter' : 'Créer un compte';
+  document.getElementById('authTitle').textContent = m==='signup' ? t('authSignup') : t('authLogin');
+  document.getElementById('auSubmit').textContent = m==='signup' ? t('authBtnSignup') : t('authBtnLogin');
+  document.getElementById('auToggleText').textContent = m==='signup' ? t('authHasAcc') : t('authNoAcc');
+  document.getElementById('auToggle').textContent = m==='signup' ? t('authLogin') : t('authSignup');
   authError('');
 }
 function updateUserLabel(){ const el=document.getElementById('userLabel'); if(el) el.textContent = currentUser ? ('👤 '+currentUser.first+' '+currentUser.last) : ''; }
@@ -2592,8 +2683,8 @@ function renderPresence(){
   users.sort((a,b)=>(a.name||a.email||'').localeCompare(b.name||b.email||''));
   document.getElementById('presenceCount').textContent = users.length;
   const list = document.getElementById('presenceList');
-  list.innerHTML = '<div class="presence-head">Membres en ligne</div>';
-  if(!users.length){ list.innerHTML += '<div class="presence-empty">Personne pour l\'instant</div>'; return; }
+  list.innerHTML = '<div class="presence-head">'+t('presenceHead')+'</div>';
+  if(!users.length){ list.innerHTML += '<div class="presence-empty">'+t('presenceEmpty')+'</div>'; return; }
   users.forEach(u=>{
     const me = (u.email||'').toLowerCase() === (currentUser.email||'').toLowerCase();
     const row = document.createElement('div'); row.className = 'pu';
@@ -2738,6 +2829,79 @@ async function importBrandsCSV(file){
   const at=document.getElementById('adminToggle'), ap=document.getElementById('adminPanel');
   if(at&&ap){ at.addEventListener('click', ()=>{ ap.hidden=!ap.hidden; at.classList.toggle('open', !ap.hidden); }); }
 })();
+
+// --- Application de la langue à toute l'interface ---
+function setText(id, txt){ const e=document.getElementById(id); if(e) e.textContent = txt; }
+function setHTML(id, html){ const e=document.getElementById(id); if(e) e.innerHTML = html; }
+function applyI18n(){
+  document.title = t('title');
+  const h1=document.querySelector('header h1'); if(h1) h1.textContent = t('title');
+  const sub=document.querySelector('header .sub'); if(sub) sub.innerHTML = t('sub');
+  const qi=document.getElementById('q'); if(qi) qi.placeholder = t('searchPh');
+  const fb=document.querySelectorAll('#filters button');
+  if(fb.length>=3){ fb[0].textContent=t('fAll'); fb[1].textContent=t('fTodo'); fb[2].textContent=t('fDone'); }
+  setText('queueBtn', t('queueBtn'));
+  const alcB=document.getElementById('alcToggle'); if(alcB) alcB.textContent = hideAlc ? t('alcOn') : t('alcOff');
+  setText('directToggle', t('directBtn'));
+  setText('doneBtn', t('doneBtn'));
+  const ss=document.getElementById('sortSel');
+  if(ss){ const opts=['sortDefault','sortAz','sortZa','sortRecent','sortOld'];
+    Array.from(ss.options).forEach((o,i)=>{ if(opts[i]) o.textContent=t(opts[i]); }); }
+  // stats (on garde les <b> avec leurs id)
+  const st=document.querySelector('.stats');
+  if(st){ const spans=st.querySelectorAll('span');
+    if(spans[0]) spans[0].innerHTML = t('statToday')+' <b id="stToday">0</b> / '+DAILY_CAP+' <b id="stExtra" class="extra"></b>';
+    if(spans[1]) spans[1].innerHTML = t('statTotal')+' <b id="stDm">0</b> / <b id="stTotal">0</b>';
+    if(spans[2]) spans[2].innerHTML = t('statFree')+' <b id="stFree">0</b>';
+  }
+  setText('exportBtn', t('exportBtn')); setText('importBtn', t('importBtn'));
+  setText('csvBtn', t('csvBtn')); setText('namesBtn', t('namesBtn'));
+  setText('logoutBtn', t('logout'));
+  const adt=document.getElementById('adminToggle'); if(adt) adt.innerHTML = t('adminBtn')+' <span class="arw">▾</span>';
+  // popup file d'envoi
+  setText('qCopy', t('qCopy')); setText('qOpen', t('qOpen'));
+  setText('qSkip', t('qSkip')); setText('qSent', t('qSent'));
+  setText('qBroken', t('qBroken')); setText('qClose', t('qClose'));
+  const qh=document.querySelector('.qhint'); if(qh) qh.innerHTML = t('qHint');
+  // réglages
+  setText('setTitle', t('setTitle'));
+  const sw=document.getElementById('setWelcome'); if(sw) sw.textContent = t('setWelcome');
+  const labels=document.querySelectorAll('.setcard label');
+  const lk=['lbFirst','lbLast','lbEmail','lbPhone'];
+  labels.forEach((l,i)=>{ if(lk[i]){ const inp=l.querySelector('input'); l.childNodes[0].nodeValue = t(lk[i]); } });
+  setText('setSave', t('setSave'));
+  const h3s=document.querySelectorAll('.setcard h3');
+  if(h3s[0]) h3s[0].textContent = t('resvTitle');
+  if(h3s[1]) h3s[1].textContent = t('adminTitle');
+  const subs=document.querySelectorAll('.setcard .setsub');
+  if(subs[1]) subs[1].textContent = t('resvSub');
+  if(subs[2]) subs[2].textContent = t('adminSub');
+  setText('resvMoreBtn', t('resvGo'));
+  // login
+  setText('authTitle', authMode==='signup'? t('authSignup') : t('authLogin'));
+  const asub=document.querySelector('.authcard .authsub'); if(asub) asub.textContent = t('authSub');
+  setText('auSubmit', authMode==='signup'? t('authBtnSignup') : t('authBtnLogin'));
+  setText('auToggleText', authMode==='signup'? t('authHasAcc') : t('authNoAcc'));
+  setText('auToggle', authMode==='signup'? t('authLogin') : t('authSignup'));
+  setText('auForgot', t('authForgot'));
+  const ph={auFirst:'lbFirst',auLast:'lbLast'};
+  Object.keys(ph).forEach(id=>{ const e=document.getElementById(id); if(e) e.placeholder=t(ph[id]); });
+  // footer
+  const ft=document.querySelector('footer'); if(ft) ft.textContent = t('footer');
+  // présence
+  const pb=document.getElementById('presenceBtn');
+  if(pb){ const c=document.getElementById('presenceCount'); const n=c?c.textContent:'0';
+    pb.innerHTML='<span class="dot"></span> <span id="presenceCount">'+n+'</span> '+t('presence'); }
+  render(q.value); updateStats();
+}
+document.getElementById('langBtn').addEventListener('click', ()=>{
+  lang = (lang==='fr') ? 'en' : 'fr';
+  try{ localStorage.setItem('marques_lang', lang); }catch(e){}
+  document.getElementById('langLabel').textContent = lang.toUpperCase();
+  applyI18n();
+});
+document.getElementById('langLabel').textContent = lang.toUpperCase();
+applyI18n();
 
 // Reset des réservations d'UN utilisateur (debug admin, dans la liste des comptes)
 async function resetUserReservations(email){
