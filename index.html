@@ -2081,6 +2081,7 @@ document.getElementById('resvMoreBtn').addEventListener('click', async ()=>{
   const btn=document.getElementById('resvMoreBtn'); btn.textContent='…';
   const got = await reserveMore(n);
   myQuotaToday = (myQuotaToday||DAILY_CAP||0) + got; DAILY_CAP = myQuotaToday;
+  if(SUP && myProfile){ try{ await SUP.from('profiles').update({daily_quota: myQuotaToday}).eq('id', myProfile.id); myProfile.daily_quota = myQuotaToday; }catch(e){} }
   freedToday = false;
   render(q.value); updateStats();
   btn.textContent='Réserver'; inp.value='';
@@ -2167,6 +2168,10 @@ async function ensureReservations(){
   let quota = parseInt(ans); if(!quota || quota<1) quota = def;
   myQuotaToday = quota; DAILY_CAP = quota;
   localStorage.setItem(qKey, String(quota));
+  // SYNC : le quota saisi devient le quota du profil (visible/identique dans le panel admin)
+  if(SUP && myProfile){
+    try{ await SUP.from('profiles').update({daily_quota: quota}).eq('id', myProfile.id); myProfile.daily_quota = quota; }catch(e){}
+  }
   const target = Math.ceil(quota*1.10);
   const got = await reserveMore(target);
   localStorage.setItem(flag,'1');
