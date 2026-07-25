@@ -1756,7 +1756,8 @@ function get(k){ return state[k] || {}; }
 function rowFor(brand){
   const st = state[brand] || {};
   return { brand:brand, dm:!!st.dm, status:st.status||null, broken:!!st.broken,
-           dm_day:st.dmDay||null, updated_by:(currentUser?currentUser.email:null), updated_at:new Date().toISOString() };
+           dm_day:st.dmDay||null, updated_by:(currentUser?currentUser.email:null), updated_at:new Date().toISOString(),
+           reserved_by: st.rby||null, reserved_day: st.rday||null };
 }
 function save(brand){
   if(SUP){
@@ -2166,36 +2167,40 @@ async function ensureReservations(){
 }
 async function reserveMore(target){
   if(!SUP || !currentUser) return 0;
-  const today=quotaDay(); let need=target, gotTotal=0, tries=0;
-  while(need>0 && tries<5){
-    tries++;
-    const cand=[];
-    for(const sec of data){ for(const it of sec.items){
-      const b=it.b, st=get(b);
-      if(st.dm || isDead(it)) continue;
-      if(it.search || !it.h) continue;      // seulement des comptes contactables (handle direct)
-      if(isAlc(it, sec)) continue;          // pas d'alcool (masqué de toute façon)
-      if(st.rby && st.rday===today) continue;
-      cand.push(b);
-    }}
-    if(!cand.length) break;
-    const pick = cand.slice(0, need);
-    let claimed=[];
-    try{
-      const { data:res, error } = await SUP.rpc('reserve_brands', { p_brands: pick, p_day: today, p_email: currentUser.email });
-      if(error){ console.log('reserve error', error); break; }
-      claimed = (res||[]).map(x=> typeof x==='string' ? x : (x && (x.brand || x.reserve_brands || Object.values(x)[0])) );
-    }catch(e){ break; }
-    claimed.forEach(b=>{ const c=get(b); c.rby=currentUser.email; c.rday=today; state[b]=c; });
-    gotTotal += claimed.length; need -= claimed.length;
-    if(!claimed.length) break;
+  const today = quotaDay();
+  await loadState();                         // état frais (réservations actuelles des autres)
+  const cand=[];
+  for(const sec of data){ for(const it of sec.items){
+    const b=it.b, st=get(b);
+    if(st.dm || isDead(it)) continue;
+    if(it.search || !it.h) continue;         // seulement des comptes contactables (handle direct)
+    if(isAlc(it, sec)) continue;             // pas d'alcool
+    if(st.rby && st.rday===today) continue;  // déjà réservé (moi ou un autre)
+    cand.push(b);
+  }}
+  const pick = cand.slice(0, target);
+  if(!pick.length){ return 0; }
+  const rows = pick.map(b=>{ const st=get(b); return {
+    brand:b, dm:!!st.dm, status:st.status||null, broken:!!st.broken,
+    dm_day:st.dmDay||null, updated_by:st.by||null, updated_at:new Date().toISOString(),
+    reserved_by: currentUser.email, reserved_day: today
+  }; });
+  const { error } = await SUP.from('brand_status').upsert(rows, { onConflict:'brand' });
+  if(error){
+    alert("Réservation impossible : "+error.message+"\n\nVérifie que tu as bien lancé « supabase-reservations.sql » (colonnes reserved_by / reserved_day).");
+    return 0;
   }
-  await loadState();
-  return gotTotal;
+  pick.forEach(b=>{ const c=get(b); c.rby=currentUser.email; c.rday=today; state[b]=c; });
+  await loadState(); render(q.value);
+  return pick.length;
 }
 async function freeMyReservations(){
   if(!SUP || !currentUser) return;
-  try{ await SUP.rpc('free_my_reservations', { p_day: quotaDay(), p_email: currentUser.email }); }catch(e){}
+  const today = quotaDay();
+  try{
+    await SUP.from('brand_status').update({reserved_by:null, reserved_day:null})
+      .eq('reserved_by', currentUser.email).eq('reserved_day', today).eq('dm', false);
+  }catch(e){}
   await loadState(); render(q.value);
 }
 function checkQuotaFree(){
@@ -2658,7 +2663,9 @@ async function resetUserReservations(email){
   if(!SUP) return;
   if(!confirm('Libérer les réservations du jour de '+email+' ?')) return false;
   const today = quotaDay();
-  try{ await SUP.rpc('free_my_reservations', { p_day: today, p_email: email }); }catch(e){ alert('Erreur : '+e.message); return false; }
+  const { error } = await SUP.from('brand_status').update({reserved_by:null, reserved_day:null})
+    .eq('reserved_by', email).eq('reserved_day', today);
+  if(error){ alert('Erreur : '+error.message); return false; }
   // si c'est mon propre compte, je réinitialise aussi mes repères locaux
   if((email||'').toLowerCase() === myEmailLC()){
     try{ Object.keys(localStorage).forEach(k=>{ if(k.indexOf('resvdone_'+today)===0 || k.indexOf('quota_'+today)===0) localStorage.removeItem(k); }); }catch(e){}
