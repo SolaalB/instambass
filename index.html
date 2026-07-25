@@ -251,6 +251,7 @@
     <span>DM aujourd'hui : <b id="stToday">0</b> / 60 <b id="stExtra" class="extra"></b></span>
     <div class="bar"><span id="stBar"></span></div>
     <span class="tot">Total démarchées : <b id="stDm">0</b> / <b id="stTotal">0</b></span>
+    <span class="tot">🟢 Stock libre : <b id="stFree">0</b></span>
   </div>
   <div class="dataio">
     <span id="adminIO" hidden>
@@ -1830,6 +1831,22 @@ function updateStats(){
   const bar = document.getElementById('stBar');
   bar.style.width = Math.min(sentToday/DAILY_CAP*100, 100)+"%";
   bar.classList.toggle('full', sentToday >= DAILY_CAP);
+  const freeEl = document.getElementById('stFree');
+  if(freeEl) freeEl.textContent = countFreePool();
+}
+// Stock libre = marques réservables à l'instant T (mêmes critères que la réservation)
+function countFreePool(){
+  const today = quotaDay(); let n=0;
+  data.forEach(sec=>sec.items.forEach(it=>{
+    const st=get(it.b);
+    if(st.dm || isDead(it)) return;
+    if(it.search || !it.h) return;
+    if(isAlc(it, sec)) return;
+    if(isPetKids(sec)) return;
+    if(st.rby && st.rday===today) return;
+    n++;
+  }));
+  return n;
 }
 
 function igUrl(h){return "https://www.instagram.com/"+h+"/";}
@@ -2177,9 +2194,9 @@ async function ensureReservations(){
   localStorage.setItem(flag,'1');
   render(q.value); updateStats();
   if(got < target){
-    alert('⚠️ Seulement '+got+' marques réservées sur '+target+' demandées.\n\nIl n\'y a pas assez de marques LIBRES dans la base (les autres sont déjà réservées ou démarchées). Solutions : ajoute des marques (import CSV), ou libère des réservations (⚙ Admin → 🧹 à côté des comptes).');
+    alert('⚠️ Seulement '+got+' marques réservées sur '+target+' demandées.\n\nStock libre restant : '+countFreePool()+' marques.\nLa base n\'a plus assez de marques LIBRES (déjà démarchées ou réservées par l\'équipe). Solution : importer de nouvelles marques (🛠 Admin → 📥 Importer marques CSV).');
   } else {
-    alert(got+' marques réservées rien que pour toi ✓  (quota '+quota+' + 10 %).');
+    alert(got+' marques réservées rien que pour toi ✓  (quota '+quota+' + 10 %).\nStock libre restant : '+countFreePool()+' marques.');
   }
 }
 async function reserveMore(target){
