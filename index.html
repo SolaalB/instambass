@@ -253,7 +253,7 @@
     </select>
   </div>
   <div class="stats">
-    <span>DM aujourd'hui : <b id="stToday">0</b> / 60 <b id="stExtra" class="extra"></b></span>
+    <span>DM aujourd'hui : <b id="stToday">0</b> / <b id="stCap">60</b> <b id="stExtra" class="extra"></b></span>
     <div class="bar"><span id="stBar"></span></div>
     <span class="tot">Total démarchées : <b id="stDm">0</b> / <b id="stTotal">0</b></span>
     <span class="tot">🟢 Stock libre : <b id="stFree">0</b></span>
@@ -1913,6 +1913,7 @@ function updateStats(){
   document.getElementById('stDm').textContent = totalDm;
   document.getElementById('stTotal').textContent = items;
   document.getElementById('stToday').textContent = Math.min(sentToday, DAILY_CAP);
+  const capEl=document.getElementById('stCap'); if(capEl) capEl.textContent = DAILY_CAP;
   document.getElementById('stExtra').textContent = sentToday > DAILY_CAP ? "(+ "+(sentToday-DAILY_CAP)+")" : "";
   const bar = document.getElementById('stBar');
   bar.style.width = Math.min(sentToday/DAILY_CAP*100, 100)+"%";
@@ -2197,8 +2198,9 @@ document.getElementById('resvMoreBtn').addEventListener('click', async ()=>{
   if(!n || n<1){ inp.focus(); return; }
   const btn=document.getElementById('resvMoreBtn'); btn.textContent='…';
   const got = await reserveMore(n);
-  myQuotaToday = (myQuotaToday||DAILY_CAP||0) + got; DAILY_CAP = myQuotaToday;
-  if(SUP && myProfile){ try{ await SUP.from('profiles').update({daily_quota: myQuotaToday}).eq('id', myProfile.id); myProfile.daily_quota = myQuotaToday; }catch(e){} }
+  // NB : DAILY_CAP (quota affiché dans la barre) reste FIXE = quota saisi le matin.
+  // Seul le seuil interne de libération augmente, pour ne pas libérer ce qu'on vient de réserver.
+  myQuotaToday = (myQuotaToday||DAILY_CAP||0) + got;
   freedToday = false;
   render(q.value); updateStats();
   btn.textContent='Réserver'; inp.value='';
@@ -2854,7 +2856,7 @@ function applyI18n(){
   // stats (on garde les <b> avec leurs id)
   const st=document.querySelector('.stats');
   if(st){ const spans=Array.from(st.children).filter(el=>el.tagName==='SPAN');  // uniquement les libellés, pas la barre
-    if(spans[0]) spans[0].innerHTML = t('statToday')+' <b id="stToday">0</b> / '+DAILY_CAP+' <b id="stExtra" class="extra"></b>';
+    if(spans[0]) spans[0].innerHTML = t('statToday')+' <b id="stToday">0</b> / <b id="stCap">'+DAILY_CAP+'</b> <b id="stExtra" class="extra"></b>';
     if(spans[1]) spans[1].innerHTML = t('statTotal')+' <b id="stDm">0</b> / <b id="stTotal">0</b>';
     if(spans[2]) spans[2].innerHTML = t('statFree')+' <b id="stFree">0</b>';
   }
