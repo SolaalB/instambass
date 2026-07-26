@@ -107,6 +107,37 @@
   .tools .tool.on{background:#eef1ff;border-color:#5a3fd6;color:#3b4cca}
   .tools .tool.primary{background:#5a3fd6;color:#fff;border-color:#5a3fd6}
   .tools .tool.primary:hover{opacity:.9}
+  .tools .tuto-tool{background:#fff7e8;border-color:#f5e0b8;color:#a5761a}
+  .tools .tuto-tool:hover{background:#ffefd4;border-color:#e0a83c}
+  /* ===== Tutoriel ===== */
+  .tutooverlay{position:fixed;inset:0;background:rgba(20,20,25,.6);z-index:200;display:none;align-items:center;justify-content:center;padding:16px;animation:overlayIn .18s ease-out}
+  .tutooverlay:not([hidden]){display:flex}
+  .tutocard{position:relative;background:#fff;border-radius:20px;width:100%;max-width:540px;padding:30px 26px 22px;box-shadow:0 24px 70px rgba(0,0,0,.34);animation:cardIn .34s cubic-bezier(.2,.8,.2,1.1)}
+  .tutoclose{position:absolute;top:12px;right:12px;border:none;background:#f0f0f0;border-radius:9px;width:32px;height:32px;cursor:pointer;font-size:14px;transition:background .15s,transform .12s}
+  .tutoclose:hover{background:#e6e6e6;transform:rotate(90deg)}
+  .tutobody{min-height:250px;animation:stepIn .3s ease-out}
+  .tutobody .ticon{font-size:44px;line-height:1;margin-bottom:10px;display:block;animation:tpop .45s cubic-bezier(.2,.9,.3,1.4)}
+  @keyframes tpop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+  .tutobody h3{margin:0 0 4px;font-size:21px}
+  .tutobody .tstep{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#5a3fd6;margin-bottom:8px}
+  .tutobody p{font-size:14.5px;line-height:1.62;color:#444;margin:0 0 12px}
+  .tutobody ul{margin:0 0 10px;padding-left:18px}
+  .tutobody li{font-size:14px;line-height:1.7;color:#444;margin-bottom:5px}
+  .kbd{display:inline-block;background:#2b2b33;color:#fff;border-radius:6px;padding:2px 9px;font-size:12.5px;font-weight:700;font-family:inherit;box-shadow:0 2px 0 #14141a;margin:0 2px;animation:kglow 2.2s ease-in-out infinite}
+  @keyframes kglow{0%,100%{box-shadow:0 2px 0 #14141a}50%{box-shadow:0 2px 0 #14141a,0 0 12px rgba(90,63,214,.55)}}
+  .tnote{background:#f6f4ff;border-left:3px solid #5a3fd6;border-radius:8px;padding:10px 12px;font-size:13.5px;color:#3b3b46;line-height:1.55}
+  .tnote.warn{background:#fff6e8;border-color:#e0a83c}
+  .tnote.ok{background:#eefaf1;border-color:#2f9e57}
+  .tutodots{display:flex;gap:7px;justify-content:center;margin:16px 0 14px}
+  .tutodots i{width:8px;height:8px;border-radius:50%;background:#dcdce4;cursor:pointer;transition:all .22s}
+  .tutodots i.on{background:#5a3fd6;width:22px;border-radius:99px}
+  .tutonav{display:flex;gap:9px}
+  .tutobtn{flex:1;border:none;cursor:pointer;font-family:inherit;font-size:14.5px;font-weight:600;padding:12px;border-radius:11px;background:#5a3fd6;color:#fff;transition:transform .12s,box-shadow .15s,opacity .15s}
+  .tutobtn:hover{transform:translateY(-1.5px);box-shadow:0 7px 20px rgba(90,63,214,.35)}
+  .tutobtn:active{transform:scale(.95)}
+  .tutobtn.ghost{background:#f2f2f6;color:#555;box-shadow:none}
+  .tutobtn.ghost:hover{background:#e9e9ef;box-shadow:none}
+  .tutobtn:disabled{opacity:.35;cursor:default;transform:none;box-shadow:none}
   .tools .done-tool{background:#eefaf1;border-color:#cdebd4;color:#2f7d43}
   .tools .done-tool:hover{background:#ddf5e4;border-color:#2f9e57}
   .tools .sortsel{border:1px solid var(--line);background:#fff;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;padding:7px 10px;border-radius:8px;color:#555}
@@ -250,6 +281,7 @@
     <button id="alcToggle" class="tool on">🚫 Alcool masqué</button>
     <button id="directToggle" class="tool">✔︎ Comptes directs seulement</button>
     <button id="doneBtn" class="tool done-tool" title="Libère toutes tes marques réservées pour les autres">✅ Terminé — libérer mes réservations</button>
+    <button id="tutoBtn" class="tool tuto-tool" title="Comment envoyer les DM">📖 Tutoriel</button>
     <select id="sortSel" class="sortsel" title="Trier les marques">
       <option value="default">Tri : par catégorie</option>
       <option value="az">Nom A → Z</option>
@@ -287,6 +319,17 @@
   <div id="presenceList" class="presence-list" hidden></div>
 </div>
 <main id="list"></main>
+<div id="tutoOverlay" class="tutooverlay" hidden>
+  <div class="tutocard">
+    <button id="tutoClose" class="tutoclose" aria-label="Fermer">✕</button>
+    <div id="tutoBody" class="tutobody"></div>
+    <div class="tutodots" id="tutoDots"></div>
+    <div class="tutonav">
+      <button id="tutoPrev" class="tutobtn ghost">← Précédent</button>
+      <button id="tutoNext" class="tutobtn">Suivant →</button>
+    </div>
+  </div>
+</div>
 <div id="settingsOverlay" class="setoverlay" hidden>
   <div class="setcard">
     <div class="settop"><h2 id="setTitle">Réglages</h2><button id="setClose" aria-label="Fermer">✕</button></div>
@@ -371,7 +414,7 @@ const I18N = {
   searchPh:"Rechercher une marque… (ex : caron, watches, cookie)",
   fAll:"Toutes", fTodo:"À faire", fDone:"Démarchées",
   queueBtn:"▶ Mode file d'envoi", alcOn:"🚫 Alcool masqué", alcOff:"Alcool affiché",
-  directBtn:"✔︎ Comptes directs seulement", doneBtn:"✅ Terminé — libérer mes réservations",
+  directBtn:"✔︎ Comptes directs seulement", doneBtn:"✅ Terminé — libérer mes réservations", tutoBtn:"📖 Tutoriel",
   sortDefault:"Tri : par catégorie", sortAz:"Nom A → Z", sortZa:"Nom Z → A", sortRecent:"Plus récentes", sortOld:"Plus anciennes",
   statToday:"DM aujourd'hui :", statTotal:"Total démarchées :", statFree:"🟢 Stock libre :",
   exportBtn:"⬇ Exporter le suivi", importBtn:"⬆ Importer suivi", csvBtn:"📥 Importer marques (CSV)", namesBtn:"📋 Liste marques",
@@ -403,7 +446,7 @@ const I18N = {
   searchPh:"Search a brand… (e.g. caron, watches, cookie)",
   fAll:"All", fTodo:"To do", fDone:"Contacted",
   queueBtn:"▶ Sending queue", alcOn:"🚫 Alcohol hidden", alcOff:"Alcohol shown",
-  directBtn:"✔︎ Verified accounts only", doneBtn:"✅ Done — release my reservations",
+  directBtn:"✔︎ Verified accounts only", doneBtn:"✅ Done — release my reservations", tutoBtn:"📖 Tutorial",
   sortDefault:"Sort: by category", sortAz:"Name A → Z", sortZa:"Name Z → A", sortRecent:"Newest first", sortOld:"Oldest first",
   statToday:"DMs today:", statTotal:"Total contacted:", statFree:"🟢 Free pool:",
   exportBtn:"⬇ Export tracking", importBtn:"⬆ Import tracking", csvBtn:"📥 Import brands (CSV)", namesBtn:"📋 Brand list",
@@ -2870,6 +2913,8 @@ function applyI18n(){
   const alcB=document.getElementById('alcToggle'); if(alcB) alcB.textContent = hideAlc ? t('alcOn') : t('alcOff');
   setText('directToggle', t('directBtn'));
   setText('doneBtn', t('doneBtn'));
+  setText('tutoBtn', t('tutoBtn'));
+  if(!document.getElementById('tutoOverlay').hidden) renderTuto();
   const ss=document.getElementById('sortSel');
   if(ss){ const opts=['sortDefault','sortAz','sortZa','sortRecent','sortOld'];
     Array.from(ss.options).forEach((o,i)=>{ if(opts[i]) o.textContent=t(opts[i]); }); }
@@ -2928,6 +2973,156 @@ document.getElementById('langBtn').addEventListener('click', ()=>{
 });
 document.getElementById('langLabel').textContent = lang.toUpperCase();
 applyI18n();
+
+// ===== TUTORIEL =====
+const TUTO = {
+ fr:[
+  {i:"👋", s:"Bienvenue", h:"Comment envoyer tes DM",
+   b:`<p>Ce petit guide t'explique <b>tout le circuit</b>, de la connexion jusqu'à la fin de ta session.</p>
+      <p>En résumé : tu indiques ton quota du jour, l'outil te <b>réserve des marques rien que pour toi</b>, puis tu enchaînes les envois au clavier.</p>
+      <div class="tnote">⏱️ Compte environ <b>10 secondes par marque</b> une fois le coup de main pris.</div>`},
+  {i:"🎯", s:"Étape 1", h:"Ton quota du jour",
+   b:`<p>À chaque connexion, une fenêtre te demande <b>combien de DM tu comptes envoyer aujourd'hui</b>.</p>
+      <p>Saisis ton nombre (ex. <b>120</b>) puis valide.</p>
+      <div class="tnote">L'outil te réserve automatiquement <b>30 % de marques en plus</b> (donc 156 pour 120) afin d'anticiper les liens cassés et les comptes injoignables.</div>
+      <p style="margin-top:12px">Ces marques sont <b>bloquées pour toi seul</b> : personne d'autre ne pourra les contacter.</p>`},
+  {i:"▶️", s:"Étape 2", h:"Lancer le mode file d'envoi",
+   b:`<p>Clique sur <b>▶ Mode file d'envoi</b> en haut de la page.</p>
+      <p>Une fenêtre s'ouvre et t'affiche <b>uniquement tes marques réservées</b>, une par une. Tu n'as plus à chercher : tu enchaînes.</p>
+      <div class="tnote ok">✅ Le message est déjà <b>rédigé et personnalisé</b> (en français ou en anglais selon la marque) avec tes coordonnées.</div>`},
+  {i:"⌨️", s:"Étape 3", h:"Copier le message",
+   b:`<p>Appuie sur <span class="kbd">C</span> pour copier le message de la marque affichée.</p>
+      <p>Le bouton passe à <b>« Copié ✓ »</b> : c'est prêt à coller.</p>
+      <div class="tnote">💡 Le message est en réalité <b>déjà copié automatiquement</b> à l'affichage de chaque marque. La touche <span class="kbd">C</span> sert si tu veux le recopier.</div>`},
+  {i:"💬", s:"Étape 4", h:"Ouvrir et coller",
+   b:`<p>Appuie sur <span class="kbd">O</span> : la <b>conversation Instagram</b> de la marque s'ouvre dans un nouvel onglet.</p>
+      <ul>
+        <li>Colle le message : <span class="kbd">Cmd</span>+<span class="kbd">V</span> (Mac) ou <span class="kbd">Ctrl</span>+<span class="kbd">V</span></li>
+        <li>Envoie le DM sur Instagram</li>
+        <li><b>Reviens sur l'onglet de l'outil</b></li>
+      </ul>`},
+  {i:"✅", s:"Étape 5", h:"Valider l'envoi",
+   b:`<p>De retour sur l'outil, appuie sur <span class="kbd">Entrée</span>.</p>
+      <p>Ça valide le DM comme envoyé, ajoute <b>+1</b> à ta progression, et affiche <b>automatiquement la marque suivante</b>.</p>
+      <div class="tnote ok">🎉 Un petit <b>+1 ✓</b> s'envole à chaque validation, et ta barre de quota avance.</div>`},
+  {i:"⚠️", s:"Étape 6", h:"Lien mort ou mauvais compte",
+   b:`<p>Le lien ne mène nulle part ? Le compte n'existe plus, est privé, ou ne correspond pas à la marque ?</p>
+      <p>Appuie sur <span class="kbd">B</span> (ou clique <b>« ⚠︎ Lien mort »</b>).</p>
+      <div class="tnote warn">La marque est marquée <b>incontactable</b> et disparaît définitivement — pour toi <b>et pour toute l'équipe</b>. Plus personne ne perdra de temps dessus.</div>
+      <p style="margin-top:12px">Tu peux aussi utiliser <span class="kbd">S</span> pour simplement <b>passer</b> une marque sans la juger.</p>`},
+  {i:"➕", s:"Étape 7", h:"Besoin de plus de marques ?",
+   b:`<p>Tu as fini tes marques réservées mais tu <b>n'as pas atteint ton quota</b> (ou tu veux le dépasser) ?</p>
+      <ul>
+        <li>Ouvre les <b>⚙ Réglages</b> (roue crantée en haut à droite)</li>
+        <li>Section <b>🎯 Réserver plus de marques</b></li>
+        <li>Indique combien tu en veux en plus, puis <b>Réserver</b></li>
+      </ul>
+      <div class="tnote">Ton quota affiché ne bouge pas : les envois au-delà s'affichent en <b>(+X)</b>.</div>`},
+  {i:"🔓", s:"Étape 8", h:"Terminer ta session",
+   b:`<p><b>Très important :</b> quand tu as fini pour la journée, clique sur <b>✅ Terminé — libérer mes réservations</b>.</p>
+      <p>Toutes les marques que tu n'as pas contactées <b>redeviennent disponibles pour les autres</b>.</p>
+      <div class="tnote warn">Sans ça, tes marques restent bloquées et personne d'autre ne peut les démarcher. Tes DM déjà envoyés sont bien sûr conservés.</div>`},
+  {i:"⌨️", s:"Récap", h:"Les raccourcis clavier",
+   b:`<ul>
+        <li><span class="kbd">C</span> — copier le message</li>
+        <li><span class="kbd">O</span> — ouvrir la conversation Instagram</li>
+        <li><span class="kbd">Entrée</span> — valider l'envoi + marque suivante</li>
+        <li><span class="kbd">S</span> — passer cette marque</li>
+        <li><span class="kbd">B</span> — signaler un lien mort / incontactable</li>
+        <li><span class="kbd">Échap</span> — fermer la fenêtre</li>
+      </ul>
+      <div class="tnote ok">🚀 Avec ces 3 touches — <span class="kbd">O</span>, coller, <span class="kbd">Entrée</span> — tu enchaînes très vite. Bon démarchage !</div>`}
+ ],
+ en:[
+  {i:"👋", s:"Welcome", h:"How to send your DMs",
+   b:`<p>This quick guide walks you through <b>the whole flow</b>, from login to the end of your session.</p>
+      <p>In short: you set your daily quota, the tool <b>reserves brands just for you</b>, then you send fast using the keyboard.</p>
+      <div class="tnote">⏱️ Expect about <b>10 seconds per brand</b> once you get the hang of it.</div>`},
+  {i:"🎯", s:"Step 1", h:"Your daily quota",
+   b:`<p>Each time you log in, a window asks <b>how many DMs you plan to send today</b>.</p>
+      <p>Enter your number (e.g. <b>120</b>) and confirm.</p>
+      <div class="tnote">The tool automatically reserves <b>30% extra brands</b> (156 for 120) to cover broken links and unreachable accounts.</div>
+      <p style="margin-top:12px">These brands are <b>locked for you only</b> — nobody else can contact them.</p>`},
+  {i:"▶️", s:"Step 2", h:"Start the sending queue",
+   b:`<p>Click <b>▶ Sending queue</b> at the top of the page.</p>
+      <p>A window opens showing <b>only your reserved brands</b>, one at a time. No more searching — just keep going.</p>
+      <div class="tnote ok">✅ The message is already <b>written and personalised</b> (French or English depending on the brand) with your contact details.</div>`},
+  {i:"⌨️", s:"Step 3", h:"Copy the message",
+   b:`<p>Press <span class="kbd">C</span> to copy the message for the brand shown.</p>
+      <p>The button switches to <b>“Copied ✓”</b> — ready to paste.</p>
+      <div class="tnote">💡 The message is actually <b>copied automatically</b> when each brand appears. <span class="kbd">C</span> is there if you need to copy it again.</div>`},
+  {i:"💬", s:"Step 4", h:"Open and paste",
+   b:`<p>Press <span class="kbd">O</span>: the brand's <b>Instagram conversation</b> opens in a new tab.</p>
+      <ul>
+        <li>Paste the message: <span class="kbd">Cmd</span>+<span class="kbd">V</span> (Mac) or <span class="kbd">Ctrl</span>+<span class="kbd">V</span></li>
+        <li>Send the DM on Instagram</li>
+        <li><b>Come back to the tool's tab</b></li>
+      </ul>`},
+  {i:"✅", s:"Step 5", h:"Confirm the send",
+   b:`<p>Back in the tool, press <span class="kbd">Enter</span>.</p>
+      <p>This marks the DM as sent, adds <b>+1</b> to your progress, and shows the <b>next brand automatically</b>.</p>
+      <div class="tnote ok">🎉 A little <b>+1 ✓</b> flies up on each confirmation, and your quota bar fills in.</div>`},
+  {i:"⚠️", s:"Step 6", h:"Broken link or wrong account",
+   b:`<p>Link goes nowhere? Account deleted, private, or not the real brand?</p>
+      <p>Press <span class="kbd">B</span> (or click <b>“⚠︎ Broken link”</b>).</p>
+      <div class="tnote warn">The brand is flagged <b>unreachable</b> and disappears for good — for you <b>and the whole team</b>. Nobody wastes time on it again.</div>
+      <p style="margin-top:12px">You can also press <span class="kbd">S</span> to simply <b>skip</b> a brand.</p>`},
+  {i:"➕", s:"Step 7", h:"Need more brands?",
+   b:`<p>Done with your reserved brands but <b>haven't hit your quota</b> (or want to go beyond)?</p>
+      <ul>
+        <li>Open <b>⚙ Settings</b> (gear icon, top right)</li>
+        <li>Section <b>🎯 Reserve more brands</b></li>
+        <li>Enter how many more, then <b>Reserve</b></li>
+      </ul>
+      <div class="tnote">Your displayed quota stays the same: extra sends show up as <b>(+X)</b>.</div>`},
+  {i:"🔓", s:"Step 8", h:"End your session",
+   b:`<p><b>Very important:</b> when you're done for the day, click <b>✅ Done — release my reservations</b>.</p>
+      <p>Every brand you didn't contact <b>becomes available to others again</b>.</p>
+      <div class="tnote warn">Without this, your brands stay locked and nobody else can reach them. Your sent DMs are of course kept.</div>`},
+  {i:"⌨️", s:"Recap", h:"Keyboard shortcuts",
+   b:`<ul>
+        <li><span class="kbd">C</span> — copy the message</li>
+        <li><span class="kbd">O</span> — open the Instagram conversation</li>
+        <li><span class="kbd">Enter</span> — confirm sent + next brand</li>
+        <li><span class="kbd">S</span> — skip this brand</li>
+        <li><span class="kbd">B</span> — report broken / unreachable link</li>
+        <li><span class="kbd">Esc</span> — close the window</li>
+      </ul>
+      <div class="tnote ok">🚀 With just <span class="kbd">O</span>, paste, <span class="kbd">Enter</span> you'll fly through the list. Happy outreach!</div>`}
+ ]
+};
+let tutoIdx = 0;
+function tutoPages(){ return TUTO[lang] || TUTO.fr; }
+function renderTuto(){
+  const pages = tutoPages(); const p = pages[tutoIdx];
+  const body = document.getElementById('tutoBody');
+  body.style.animation='none'; void body.offsetWidth; body.style.animation='';
+  body.innerHTML = '<span class="ticon">'+p.i+'</span><div class="tstep">'+p.s+' · '+(tutoIdx+1)+'/'+pages.length+'</div><h3>'+p.h+'</h3>'+p.b;
+  const dots = document.getElementById('tutoDots');
+  dots.innerHTML='';
+  pages.forEach((_,i)=>{ const d=document.createElement('i'); if(i===tutoIdx) d.className='on';
+    d.addEventListener('click',()=>{ tutoIdx=i; renderTuto(); }); dots.appendChild(d); });
+  const prev=document.getElementById('tutoPrev'), next=document.getElementById('tutoNext');
+  prev.disabled = tutoIdx===0;
+  prev.textContent = lang==='en' ? '← Previous' : '← Précédent';
+  next.textContent = tutoIdx===pages.length-1 ? (lang==='en'?"Got it! 🚀":"C'est parti ! 🚀") : (lang==='en'?'Next →':'Suivant →');
+}
+function openTuto(){ tutoIdx=0; renderTuto(); document.getElementById('tutoOverlay').hidden=false; }
+function closeTuto(){ document.getElementById('tutoOverlay').hidden=true; }
+document.getElementById('tutoBtn').addEventListener('click', openTuto);
+document.getElementById('tutoClose').addEventListener('click', closeTuto);
+document.getElementById('tutoOverlay').addEventListener('click', e=>{ if(e.target.id==='tutoOverlay') closeTuto(); });
+document.getElementById('tutoPrev').addEventListener('click', ()=>{ if(tutoIdx>0){ tutoIdx--; renderTuto(); } });
+document.getElementById('tutoNext').addEventListener('click', ()=>{
+  const pages=tutoPages();
+  if(tutoIdx < pages.length-1){ tutoIdx++; renderTuto(); } else { closeTuto(); }
+});
+document.addEventListener('keydown', e=>{
+  if(document.getElementById('tutoOverlay').hidden) return;
+  if(e.key==='Escape') closeTuto();
+  else if(e.key==='ArrowRight') document.getElementById('tutoNext').click();
+  else if(e.key==='ArrowLeft') document.getElementById('tutoPrev').click();
+});
 
 // Reset des réservations d'UN utilisateur (debug admin, dans la liste des comptes)
 async function resetUserReservations(email){
