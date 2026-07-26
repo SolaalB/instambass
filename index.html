@@ -79,6 +79,12 @@
   .adminrow .au-name span{color:var(--muted);font-size:12px;word-break:break-all}
   .adminrow select,.adminrow input{padding:6px 8px;font-size:12px;border:1px solid var(--line);border-radius:7px;font-family:inherit}
   .adminrow input.au-quota{width:60px}
+  .au-prog{min-width:130px}
+  .au-prog-txt{font-size:12px;color:#333;margin-bottom:3px;white-space:nowrap}
+  .au-prog-bar{height:6px;background:#eee;border-radius:99px;overflow:hidden}
+  .au-prog-bar>span{display:block;height:100%;background:#5a3fd6}
+  .au-prog-bar.full>span{background:#2f9e57}
+  .au-noquota{font-size:11px;color:var(--muted);line-height:1.3;display:block;white-space:nowrap}
   .adminrow button{border:none;background:#5a3fd6;color:#fff;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer}
   .adminrow button.au-reset{background:#fdecec;color:#c0392b;border:1px solid #f3c4c4}
   .adminrow button.au-reset:hover{background:#fbdcdc}
@@ -2223,13 +2229,26 @@ async function loadAdminUsers(){
     const roleSel = document.createElement('select');
     ['member','admin'].forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=(r==='admin'?'Admin':'Membre'); roleSel.appendChild(o); });
     roleSel.value = u.role || 'member';
-    const quota = document.createElement('input'); quota.type='number'; quota.min='0'; quota.className='au-quota'; quota.value = (u.daily_quota==null?60:u.daily_quota);
-    const btn = document.createElement('button'); btn.textContent='OK';
+    // Progression du jour (lecture seule) : X DM / quota choisi + barre
+    const today = quotaDay();
+    const mail = (u.email||'').toLowerCase();
+    const sent = Object.values(state).filter(v=> v && v.dm && v.dmDay===today && String(v.by||'').toLowerCase()===mail).length;
+    const hasQuota = (u.quota_day === today) && u.daily_quota;
+    const prog = document.createElement('div'); prog.className='au-prog';
+    if(hasQuota){
+      const cap = u.daily_quota;
+      const pct = Math.min(sent/cap*100, 100);
+      const extra = sent > cap ? ' (+'+(sent-cap)+')' : '';
+      prog.innerHTML = '<div class="au-prog-txt"><b>'+Math.min(sent,cap)+'</b> / '+cap+' DM'+extra+'</div>'+
+                       '<div class="au-prog-bar'+(sent>=cap?' full':'')+'"><span style="width:'+pct+'%"></span></div>';
+    } else {
+      prog.innerHTML = '<span class="au-noquota">⏳ Pas encore connecté aujourd\'hui<br><small>quota non défini</small></span>';
+    }
+    const btn = document.createElement('button'); btn.textContent='OK'; btn.title='Enregistrer le rôle';
     btn.addEventListener('click', async ()=>{
       btn.textContent='…';
-      const { error } = await SUP.from('profiles').update({ role: roleSel.value, daily_quota: parseInt(quota.value)||60 }).eq('id', u.id);
+      const { error } = await SUP.from('profiles').update({ role: roleSel.value }).eq('id', u.id);
       btn.textContent = error ? 'Err' : '✓';
-      if(!error && myProfile && u.id===myProfile.id){ DAILY_CAP = parseInt(quota.value)||60; updateStats(); }
       setTimeout(()=>btn.textContent='OK', 1200);
     });
     const rstBtn = document.createElement('button'); rstBtn.textContent='🧹'; rstBtn.title='Reset réservations du jour de ce compte'; rstBtn.className='au-reset';
@@ -2239,8 +2258,8 @@ async function loadAdminUsers(){
       rstBtn.textContent = ok ? '✓' : '🧹';
       setTimeout(()=>rstBtn.textContent='🧹', 1200);
     });
-    const ctrl = document.createElement('div'); ctrl.style.display='flex'; ctrl.style.gap='6px'; ctrl.style.alignItems='center';
-    ctrl.append(roleSel, quota, btn, rstBtn);
+    const ctrl = document.createElement('div'); ctrl.style.display='flex'; ctrl.style.gap='8px'; ctrl.style.alignItems='center';
+    ctrl.append(prog, roleSel, btn, rstBtn);
     row.appendChild(ctrl);
     list.appendChild(row);
   });
@@ -2289,7 +2308,8 @@ async function ensureReservations(){
   localStorage.setItem(qKey, String(quota));
   // SYNC : le quota saisi devient le quota du profil (visible/identique dans le panel admin)
   if(SUP && myProfile){
-    try{ await SUP.from('profiles').update({daily_quota: quota}).eq('id', myProfile.id); myProfile.daily_quota = quota; }catch(e){}
+    try{ await SUP.from('profiles').update({daily_quota: quota, quota_day: today}).eq('id', myProfile.id);
+         myProfile.daily_quota = quota; myProfile.quota_day = today; }catch(e){}
   }
   const target = Math.ceil(quota*1.30);   // marge d'erreur de 30 % (liens morts, comptes injoignables…)
   const got = await reserveMore(target);
