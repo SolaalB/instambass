@@ -182,6 +182,8 @@
   .qtop #qClose{border:none;background:#f0f0f0;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;font-family:inherit}
   .qcat{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
   .qbrand{font-size:22px;font-weight:700;margin:2px 0}
+  .qbrandlink{color:inherit;text-decoration:none;cursor:pointer}
+  .qbrandlink:hover,.qbrandlink:visited,.qbrandlink:focus{color:inherit;text-decoration:none}
   .qhandle{font-size:13px;color:var(--muted);margin-bottom:10px;word-break:break-all}
   .qcard .qlang{font-size:10px;font-weight:700;border-radius:5px;padding:1px 6px}
   .qcard .qlang.fr{background:#eef1ff;color:#3b4cca}
@@ -2472,7 +2474,10 @@ function stepQueue(){
   const {it, sec} = queue[qIdx];
   document.getElementById('qCount').textContent = t('qBrand')+' '+(qIdx+1)+' / '+queue.length;
   document.getElementById('qCat').textContent = sec.cat;
-  document.getElementById('qBrand').innerHTML = it.b+' <span class="qlang '+(it.fr?'fr':'en')+'">'+(it.fr?'FR':'EN')+'</span>';
+  const gq = 'https://www.google.com/search?q='+encodeURIComponent((it.cn||it.b)+' instagram');
+  document.getElementById('qBrand').innerHTML =
+    '<a class="qbrandlink" href="'+gq+'" target="_blank" rel="noopener" title="Chercher cette marque sur Google">'+it.b+'</a>'+
+    ' <span class="qlang '+(it.fr?'fr':'en')+'">'+(it.fr?'FR':'EN')+'</span>';
   document.getElementById('qHandle').textContent = it.h ? ('@'+it.h) : 'compte à rechercher';
   document.getElementById('qMsg').value = messageFor(it);
   const open = document.getElementById('qOpen');
