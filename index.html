@@ -2475,9 +2475,13 @@ function stepQueue(){
   document.getElementById('qCount').textContent = t('qBrand')+' '+(qIdx+1)+' / '+queue.length;
   document.getElementById('qCat').textContent = sec.cat;
   const gq = 'https://www.google.com/search?q='+encodeURIComponent((it.cn||it.b)+' instagram');
-  document.getElementById('qBrand').innerHTML =
-    '<a class="qbrandlink" href="'+gq+'" target="_blank" rel="noopener" title="Chercher cette marque sur Google">'+it.b+'</a>'+
+  const qb = document.getElementById('qBrand');
+  qb.innerHTML =
+    '<a class="qbrandlink" id="qBrandLink" href="'+gq+'" target="_blank" rel="noopener" title="Rechercher cette marque sur Google">'+it.b+'</a>'+
     ' <span class="qlang '+(it.fr?'fr':'en')+'">'+(it.fr?'FR':'EN')+'</span>';
+  // sécurité : ouverture forcée au clic (au cas où le lien serait intercepté)
+  const bl = document.getElementById('qBrandLink');
+  if(bl) bl.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); window.open(gq, '_blank', 'noopener'); });
   document.getElementById('qHandle').textContent = it.h ? ('@'+it.h) : 'compte à rechercher';
   document.getElementById('qMsg').value = messageFor(it);
   const open = document.getElementById('qOpen');
