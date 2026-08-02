@@ -427,7 +427,7 @@ const I18N = {
   allBrands:"Toutes les marques", noBrand:"Aucune marque trouvée.",
   qCopy:"Copier le message", qOpen:"💬 Ouvrir le DM", qSkip:"Passer →", qSent:"Envoyé ✓ · Suivant",
   qBroken:"⚠︎ Lien mort · marquer incontactable", qClose:"✕ Fermer", qBrand:"Marque",
-  qHint:'Raccourcis : <b>C</b> copier · <b>O</b> ouvrir le DM · <b>Entrée</b> envoyé + suivant · <b>S</b> passer · <b>B</b> lien mort · <b>Échap</b> fermer',
+  qHint:'Raccourcis : <b>C</b> copier · <b>O</b> ouvrir le DM · <b>G</b> recherche Google · <b>Entrée</b> envoyé + suivant · <b>S</b> passer · <b>B</b> lien mort · <b>Échap</b> fermer',
   qQuota:"Ton quota du jour :",
   setTitle:"Réglages", setWelcomeTitle:"Bienvenue — configuration",
   setWelcome:"Bienvenue 👋 Renseigne tes coordonnées de contact : elles s'inséreront automatiquement dans les messages que tu envoies.",
@@ -459,7 +459,7 @@ const I18N = {
   allBrands:"All brands", noBrand:"No brand found.",
   qCopy:"Copy message", qOpen:"💬 Open DM", qSkip:"Skip →", qSent:"Sent ✓ · Next",
   qBroken:"⚠︎ Broken link · mark unreachable", qClose:"✕ Close", qBrand:"Brand",
-  qHint:'Shortcuts: <b>C</b> copy · <b>O</b> open DM · <b>Enter</b> sent + next · <b>S</b> skip · <b>B</b> broken link · <b>Esc</b> close',
+  qHint:'Shortcuts: <b>C</b> copy · <b>O</b> open DM · <b>G</b> Google search · <b>Enter</b> sent + next · <b>S</b> skip · <b>B</b> broken link · <b>Esc</b> close',
   qQuota:"Your daily quota:",
   setTitle:"Settings", setWelcomeTitle:"Welcome — setup",
   setWelcome:"Welcome 👋 Fill in your contact details: they will be inserted automatically into the messages you send.",
@@ -2551,6 +2551,7 @@ document.addEventListener('keydown', (e)=>{
   else if(e.key==='Enter'){ e.preventDefault(); document.getElementById('qSent').click(); }
   else if(k==='s'){ e.preventDefault(); document.getElementById('qSkip').click(); }
   else if(k==='b'){ e.preventDefault(); document.getElementById('qBroken').click(); }
+  else if(k==='g'){ e.preventDefault(); const bl=document.getElementById('qBrandLink'); if(bl) window.open(bl.href,'_blank','noopener'); }
 });
 
 // --- Export / Import du suivi (portable entre ordinateurs) ---
@@ -3035,6 +3036,7 @@ const TUTO = {
    b:`<ul>
         <li><span class="kbd">C</span> — copier le message</li>
         <li><span class="kbd">O</span> — ouvrir la conversation Instagram</li>
+        <li><span class="kbd">G</span> — rechercher la marque sur Google</li>
         <li><span class="kbd">Entrée</span> — valider l'envoi + marque suivante</li>
         <li><span class="kbd">S</span> — passer cette marque</li>
         <li><span class="kbd">B</span> — signaler un lien mort / incontactable</li>
@@ -3092,6 +3094,7 @@ const TUTO = {
    b:`<ul>
         <li><span class="kbd">C</span> — copy the message</li>
         <li><span class="kbd">O</span> — open the Instagram conversation</li>
+        <li><span class="kbd">G</span> — search the brand on Google</li>
         <li><span class="kbd">Enter</span> — confirm sent + next brand</li>
         <li><span class="kbd">S</span> — skip this brand</li>
         <li><span class="kbd">B</span> — report broken / unreachable link</li>
