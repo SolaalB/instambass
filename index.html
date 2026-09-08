@@ -2876,7 +2876,7 @@ async function importBrandsCSV(file){
   })).filter(x=>x.brand && x.handle);
   const seen=new Set(); const uniq=[];
   clean.forEach(x=>{ const n=normB(x.brand); if(n && !seen.has(n)){ seen.add(n); x.brand_norm=n; uniq.push(x); } });
-  if(!uniq.length){ alert("Aucune ligne valide. Vérifie l'en-tête du CSV : brand,handle,tiktok,fr,category"); return; }
+  if(!uniq.length){ alert("Aucune ligne valide. Vérifie l'en-tête du CSV : brand,handle,fr,category\n\n(Astuce : un export brut Bright Data doit d'abord être converti par Claude avant import.)"); return; }
   let sent=0;
   for(let i=0;i<uniq.length;i+=500){
     const chunk=uniq.slice(i,i+500).map(x=>({brand:x.brand,brand_norm:x.brand_norm,handle:x.handle,tt:x.tt,fr:x.fr,category:x.category,added_by:currentUser?currentUser.email:null}));
